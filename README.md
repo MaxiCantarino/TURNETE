@@ -1,7 +1,6 @@
 # 💅 Sistema de Gestión de Turnos - Estética Profesional
 
-Sistema completo de reserva de turnos online para negocios de estética, similar a Doyturnos.com.
-
+Sistema completo de reserva de turnos online para negocios de estética
 ## 📋 Características
 
 ### Panel del Cliente
