@@ -10,6 +10,7 @@ import {
 } from "../services/api";
 import { formatDate } from "../utils/dateUtils";
 import { useCliente } from "../contexts/ClienteContext";
+import axios from "axios";
 
 const ClienteReserva = () => {
   const { cliente } = useCliente();
@@ -87,16 +88,37 @@ const ClienteReserva = () => {
     }
   };
 
-  const handleServicioSelect = (servicio) => {
-    setFormData({ ...formData, servicio });
+  const handleServicioSelect = async (servicio) => {
+    setFormData({ ...formData, servicio, profesional: null });
+
+    // Cargar profesionales que ofrecen este servicio
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/api/servicios/${servicio.id}/profesionales`,
+      );
+      setProfesionales(response.data);
+    } catch (error) {
+      console.error("Error cargando profesionales del servicio:", error);
+    }
+
     setStep(2);
   };
 
-  const handleProfesionalSelect = (profesional) => {
-    setFormData({ ...formData, profesional });
+  const handleProfesionalSelect = async (profesional) => {
+    setFormData({ ...formData, profesional, fecha: null, horario: null });
+
+    // Cargar horarios del profesional seleccionado
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/api/profesionales/${profesional.id}/horarios`,
+      );
+      setConfiguracion(response.data);
+    } catch (error) {
+      console.error("Error cargando horarios del profesional:", error);
+    }
+
     setStep(3);
   };
-
   const handleDateSelect = (fecha) => {
     setFormData({ ...formData, fecha, horario: null });
   };

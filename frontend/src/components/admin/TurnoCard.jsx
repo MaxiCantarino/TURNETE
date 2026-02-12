@@ -12,9 +12,7 @@ const TurnoCard = ({ turno, onCancelar, onWhatsApp }) => {
   };
 
   const formatPhone = (phone) => {
-    // Remover caracteres no numéricos
     const cleaned = phone.replace(/\D/g, "");
-    // Asegurar que tenga código de país (Argentina)
     if (cleaned.startsWith("54")) return cleaned;
     if (cleaned.startsWith("9")) return "54" + cleaned;
     return "549" + cleaned;
@@ -27,8 +25,14 @@ const TurnoCard = ({ turno, onCancelar, onWhatsApp }) => {
     window.open(url, "_blank");
   };
 
+  // Color del profesional (con fallback)
+  const profesionalColor = turno.profesional_color || "#3498db";
+
   return (
-    <div className="card p-4 hover:shadow-lg transition-all">
+    <div
+      className="card p-4 hover:shadow-lg transition-all border-l-4"
+      style={{ borderLeftColor: profesionalColor }}
+    >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
@@ -55,21 +59,12 @@ const TurnoCard = ({ turno, onCancelar, onWhatsApp }) => {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-dark-500 mb-3">
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-          />
-        </svg>
-        <span>{turno.profesional_nombre}</span>
+      <div className="flex items-center gap-2 text-xs mb-3">
+        <div
+          className="w-3 h-3 rounded-full"
+          style={{ backgroundColor: profesionalColor }}
+        />
+        <span className="text-dark-500">{turno.profesional_nombre}</span>
       </div>
 
       {turno.saldo_pendiente > 0 && (

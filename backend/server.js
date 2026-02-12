@@ -38,11 +38,32 @@ app.get("/api/servicios", (req, res) => {
 });
 
 // ========== RUTAS DE CONFIGURACIÓN ==========
+
+// Obtener horarios de un profesional específico
+app.get("/api/profesionales/:id/horarios", (req, res) => {
+  const { id } = req.params;
+
+  db.all(
+    "SELECT * FROM profesional_horarios WHERE profesional_id = ? AND activo = 1",
+    [id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    },
+  );
+});
+
+// Obtener configuración (para compatibilidad - deprecado)
 app.get("/api/configuracion", (req, res) => {
-  db.all("SELECT * FROM configuracion_horarios", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+  // Por ahora devuelve horarios del primer profesional como fallback
+  db.all(
+    "SELECT dia_semana, hora_inicio, hora_fin FROM profesional_horarios WHERE profesional_id = 1 AND activo = 1",
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    },
+  );
 });
 
 // ========== RUTAS DE TURNOS ==========
@@ -244,11 +265,11 @@ app.get("/api/admin/turnos", (req, res) => {
   const { fecha, estado, profesional_id } = req.query;
 
   let sql = `
-    SELECT t.*, 
-           s.nombre as servicio_nombre, s.precio, s.categoria, s.duracion,
-           p.nombre as profesional_nombre,
-           c.nombre as cliente_nombre_completo, c.apellido, c.dni, c.telefono
-    FROM turnos t
+  SELECT t.*, 
+         s.nombre as servicio_nombre, s.precio, s.categoria, s.duracion,
+         p.nombre as profesional_nombre, p.color as profesional_color,
+         c.nombre as cliente_nombre_completo, c.apellido, c.dni, c.telefono
+  FROM turnos t
     LEFT JOIN servicios s ON t.servicio_id = s.id
     LEFT JOIN profesionales p ON t.profesional_id = p.id
     LEFT JOIN clientes c ON t.cliente_id = c.id
@@ -349,11 +370,11 @@ app.get("/api/admin/recordatorios", (req, res) => {
   const fechaMañana = mañana.toISOString().split("T")[0];
 
   const sql = `
-    SELECT t.*, 
-           s.nombre as servicio_nombre,
-           p.nombre as profesional_nombre,
-           c.nombre as cliente_nombre, c.apellido, c.telefono
-    FROM turnos t
+  SELECT t.*, 
+         s.nombre as servicio_nombre,
+         p.nombre as profesional_nombre, p.color as profesional_color,
+         c.nombre as cliente_nombre, c.apellido, c.telefono
+  FROM turnos t 
     LEFT JOIN servicios s ON t.servicio_id = s.id
     LEFT JOIN profesionales p ON t.profesional_id = p.id
     LEFT JOIN clientes c ON t.cliente_id = c.id
@@ -411,7 +432,74 @@ app.delete("/api/admin/servicios/:id", (req, res) => {
     res.json({ message: "Servicio eliminado" });
   });
 });
+// ========== RUTAS DE PROFESIONAL-SERVICIOS ==========
 
+// Obtener servicios asignados a un profesional
+app.get("/api/profesionales/:id/servicios", (req, res) => {
+  const { id } = req.params;
+
+  const sql = `
+    SELECT s.* 
+    FROM servicios s
+    INNER JOIN profesional_servicios ps ON s.id = ps.servicio_id
+    WHERE ps.profesional_id = ?
+  `;
+
+  db.all(sql, [id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Asignar servicio a profesional
+app.post("/api/profesionales/:id/servicios", (req, res) => {
+  const { id } = req.params;
+  const { servicio_id } = req.body;
+
+  const sql = `INSERT INTO profesional_servicios (profesional_id, servicio_id) 
+               VALUES (?, ?)`;
+
+  db.run(sql, [id, servicio_id], function (err) {
+    if (err) {
+      if (err.message.includes("UNIQUE")) {
+        return res.status(400).json({ error: "Servicio ya asignado" });
+      }
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ id: this.lastID, message: "Servicio asignado" });
+  });
+});
+
+// Desasignar servicio de profesional
+app.delete("/api/profesionales/:id/servicios/:servicio_id", (req, res) => {
+  const { id, servicio_id } = req.params;
+
+  db.run(
+    "DELETE FROM profesional_servicios WHERE profesional_id = ? AND servicio_id = ?",
+    [id, servicio_id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: "Servicio desasignado" });
+    },
+  );
+});
+
+// Obtener profesionales que ofrecen un servicio específico
+app.get("/api/servicios/:id/profesionales", (req, res) => {
+  const { id } = req.params;
+
+  const sql = `
+    SELECT p.* 
+    FROM profesionales p
+    INNER JOIN profesional_servicios ps ON p.id = ps.profesional_id
+    WHERE ps.servicio_id = ?
+  `;
+
+  db.all(sql, [id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
 // --- RUTAS DE AUTENTICACIÓN GOOGLE ---
 
 app.get("/api/auth/google/:id", (req, res) => {

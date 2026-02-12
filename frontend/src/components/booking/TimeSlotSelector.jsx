@@ -37,8 +37,20 @@ const TimeSlotSelector = ({
     );
   }
 
-  const dayOfWeek = selectedDate.getDay();
-  const configDelDia = configuracion.find((c) => c.dia_semana === dayOfWeek);
+  // Convertir número de día a nombre del día
+  const dayNames = [
+    "Domingo",
+    "Lunes",
+    "Martes",
+    "Miércoles",
+    "Jueves",
+    "Viernes",
+    "Sábado",
+  ];
+  const dayName = dayNames[selectedDate.getDay()];
+
+  // Buscar configuración por nombre del día
+  const configDelDia = configuracion.find((c) => c.dia_semana === dayName);
 
   if (!configDelDia) {
     return (

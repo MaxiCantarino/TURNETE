@@ -1,18 +1,18 @@
 const sqlite3 = require("sqlite3").verbose();
-const path = require("path");
-
-const db = new sqlite3.Database(path.join(__dirname, "turnos.db"), (err) => {
-  if (err) console.error("Error base de datos:", err.message);
-  else console.log("✅ Conectado a SQLite.");
-});
+const db = new sqlite3.Database("./turnos.db");
 
 db.serialize(() => {
-  // 1. Crear tablas si no existen
+  // Habilitar foreign keys
+  db.run("PRAGMA foreign_keys = ON");
+
+  // Tabla de profesionales CON COLOR
   db.run(`CREATE TABLE IF NOT EXISTS profesionales (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT NOT NULL
+    nombre TEXT NOT NULL,
+    color TEXT DEFAULT '#3498db'
   )`);
 
+  // Tabla de servicios
   db.run(`CREATE TABLE IF NOT EXISTS servicios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre TEXT NOT NULL,
@@ -23,7 +23,19 @@ db.serialize(() => {
     imagen_url TEXT
   )`);
 
-  // NUEVA TABLA: Clientes
+  // Tabla de horarios POR PROFESIONAL
+  db.run(`CREATE TABLE IF NOT EXISTS profesional_horarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profesional_id INTEGER NOT NULL,
+    dia_semana TEXT NOT NULL,
+    hora_inicio TEXT NOT NULL,
+    hora_fin TEXT NOT NULL,
+    activo INTEGER DEFAULT 1,
+    FOREIGN KEY (profesional_id) REFERENCES profesionales(id),
+    UNIQUE(profesional_id, dia_semana)
+  )`);
+
+  // Tabla de clientes
   db.run(`CREATE TABLE IF NOT EXISTS clientes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     dni TEXT UNIQUE NOT NULL,
@@ -37,13 +49,33 @@ db.serialize(() => {
     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
+  // Tabla de relación profesional-servicios (muchos a muchos)
+  db.run(`CREATE TABLE IF NOT EXISTS profesional_servicios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profesional_id INTEGER NOT NULL,
+    servicio_id INTEGER NOT NULL,
+    FOREIGN KEY (profesional_id) REFERENCES profesionales(id),
+    FOREIGN KEY (servicio_id) REFERENCES servicios(id),
+    UNIQUE(profesional_id, servicio_id)
+  )`);
+
+  // Tabla de tokens de Google Calendar
+  db.run(`CREATE TABLE IF NOT EXISTS google_tokens (
+    profesional_id INTEGER PRIMARY KEY,
+    access_token TEXT,
+    refresh_token TEXT,
+    expiry_date INTEGER,
+    FOREIGN KEY (profesional_id) REFERENCES profesionales(id)
+  )`);
+
+  // Tabla de turnos CON CLIENTE_ID
   db.run(`CREATE TABLE IF NOT EXISTS turnos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     servicio_id INTEGER,
     profesional_id INTEGER,
     cliente_id INTEGER,
-    cliente_nombre TEXT,
-    cliente_whatsapp TEXT,
+    cliente_nombre TEXT NOT NULL,
+    cliente_whatsapp TEXT NOT NULL,
     fecha TEXT NOT NULL,
     hora_inicio TEXT NOT NULL,
     hora_fin TEXT NOT NULL,
@@ -57,113 +89,69 @@ db.serialize(() => {
     FOREIGN KEY (cliente_id) REFERENCES clientes(id)
   )`);
 
-  db.run(`CREATE TABLE IF NOT EXISTS google_tokens (
-    profesional_id INTEGER PRIMARY KEY,
-    access_token TEXT,
-    refresh_token TEXT,
-    expiry_date INTEGER
-  )`);
+  // ========== DATOS INICIALES ==========
 
-  db.run(`CREATE TABLE IF NOT EXISTS configuracion_horarios (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    dia_semana INTEGER NOT NULL,
-    hora_inicio TEXT NOT NULL,
-    hora_fin TEXT NOT NULL,
-    activo INTEGER DEFAULT 1
-  )`);
-
-  // --- ACTUALIZACIÓN DE DATOS ---
-  db.run("DELETE FROM profesionales", (err) => {
-    if (!err) {
-      const equipo = ["Paula", "Mia", "Sophie", "Flor", "Yami"];
-      equipo.forEach((nombre, index) => {
-        db.run("INSERT INTO profesionales (id, nombre) VALUES (?, ?)", [
-          index + 1,
-          nombre,
-        ]);
-      });
-      console.log("✅ Equipo actualizado: Paula, Mia, Sophie, Flor y Yami.");
-    }
-  });
-
-  // Cargar Servicios (si la tabla está vacía)
-  db.get("SELECT count(*) as count FROM servicios", (err, row) => {
-    if (row && row.count === 0) {
-      const serviciosIniciales = [
-        [
-          "Microblading",
-          120,
-          15000,
-          "Cejas",
-          "Técnica de micropigmentación para cejas perfectas",
-        ],
-        [
-          "Extensión de Pestañas Pelo a Pelo",
-          90,
-          8000,
-          "Pestañas",
-          "Extensiones naturales una a una",
-        ],
-        [
-          "Lifting de Pestañas",
-          60,
-          6000,
-          "Pestañas",
-          "Rizado y tinte de pestañas naturales",
-        ],
-        [
-          "Perfilado de Cejas",
-          30,
-          3000,
-          "Cejas",
-          "Diseño y depilación profesional",
-        ],
-        [
-          "Limpieza Facial Profunda",
-          60,
-          7000,
-          "Faciales",
-          "Limpieza completa con extracción",
-        ],
-        [
-          "Dermaplaning",
-          45,
-          8500,
-          "Faciales",
-          "Exfoliación con bisturí para piel radiante",
-        ],
-      ];
-      serviciosIniciales.forEach((s) => {
-        db.run(
-          "INSERT INTO servicios (nombre, duracion, precio, categoria, descripcion) VALUES (?, ?, ?, ?, ?)",
-          s,
+  // Insertar profesionales CON COLORES
+  db.run(
+    `INSERT OR IGNORE INTO profesionales (id, nombre, color) VALUES
+    (1, 'Paula', '#e74c3c'),
+    (2, 'Mia', '#3498db'),
+    (3, 'Sophie', '#9b59b6'),
+    (4, 'Flor', '#f39c12'),
+    (5, 'Yami', '#1abc9c')
+  `,
+    (err) => {
+      if (err && !err.message.includes("UNIQUE")) {
+        console.error("Error insertando profesionales:", err);
+      } else {
+        console.log(
+          "✅ Equipo actualizado: Paula (rojo), Mia (azul), Sophie (violeta), Flor (naranja), Yami (verde).",
         );
-      });
-      console.log("✅ Servicios cargados con precios y categorías.");
-    }
-  });
+      }
+    },
+  );
 
-  // Cargar Configuración de Horarios (si está vacía)
-  db.get("SELECT count(*) as count FROM configuracion_horarios", (err, row) => {
-    if (row && row.count === 0) {
-      const horarios = [
-        { dia: 1, inicio: "09:00", fin: "18:00" },
-        { dia: 2, inicio: "09:00", fin: "18:00" },
-        { dia: 3, inicio: "09:00", fin: "18:00" },
-        { dia: 4, inicio: "09:00", fin: "18:00" },
-        { dia: 5, inicio: "09:00", fin: "18:00" },
-        { dia: 6, inicio: "10:00", fin: "14:00" },
-      ];
-      horarios.forEach((h) => {
-        db.run(
-          "INSERT INTO configuracion_horarios (dia_semana, hora_inicio, hora_fin) VALUES (?, ?, ?)",
-          [h.dia, h.inicio, h.fin],
-        );
-      });
-      console.log("✅ Configuración de horarios cargada.");
-    }
-  });
+  // Insertar servicios con precios y categorías
+  db.run(
+    `INSERT OR IGNORE INTO servicios (id, nombre, duracion, precio, categoria, descripcion) VALUES
+    (1, 'Microblading', 120, 15000, 'Cejas', 'Técnica de micropigmentación para cejas perfectas'),
+    (2, 'Extensión de Pestañas Pelo a Pelo', 90, 8000, 'Pestañas', 'Extensiones naturales una a una'),
+    (3, 'Lifting de Pestañas', 60, 6000, 'Pestañas', 'Rizado y lifting natural'),
+    (4, 'Perfilado de Cejas', 30, 3000, 'Cejas', 'Diseño y depilación de cejas'),
+    (5, 'Limpieza Facial Profunda', 60, 7000, 'Faciales', 'Limpieza completa con extracción'),
+    (6, 'Dermaplaning', 45, 8500, 'Faciales', 'Exfoliación con bisturí')
+  `,
+    (err) => {
+      if (err && !err.message.includes("UNIQUE")) {
+        console.error("Error insertando servicios:", err);
+      } else {
+        console.log("✅ Servicios cargados con precios y categorías.");
+      }
+    },
+  );
 
+  // Insertar horarios por defecto para cada profesional
+  const horariosPorDefecto = [
+    { dia: "Lunes", inicio: "09:00", fin: "18:00" },
+    { dia: "Martes", inicio: "09:00", fin: "18:00" },
+    { dia: "Miércoles", inicio: "09:00", fin: "18:00" },
+    { dia: "Jueves", inicio: "09:00", fin: "18:00" },
+    { dia: "Viernes", inicio: "09:00", fin: "18:00" },
+    { dia: "Sábado", inicio: "10:00", fin: "14:00" },
+    { dia: "Domingo", inicio: "10:00", fin: "14:00" },
+  ];
+
+  // Asignar horarios a cada profesional (1-5)
+  for (let profId = 1; profId <= 5; profId++) {
+    horariosPorDefecto.forEach((h) => {
+      db.run(
+        `INSERT OR IGNORE INTO profesional_horarios (profesional_id, dia_semana, hora_inicio, hora_fin) VALUES (?, ?, ?, ?)`,
+        [profId, h.dia, h.inicio, h.fin],
+      );
+    });
+  }
+
+  console.log("✅ Horarios de trabajo configurados para cada profesional.");
   console.log("✅ Base de datos lista y actualizada.");
 });
 
