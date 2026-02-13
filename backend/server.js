@@ -53,6 +53,19 @@ app.get("/api/profesionales/:id/horarios", (req, res) => {
   );
 });
 
+// Obtener TODOS los horarios de un profesional (para admin - incluye inactivos)
+app.get("/api/profesionales/:id/horarios/all", (req, res) => {
+  const { id } = req.params;
+
+  db.all(
+    "SELECT * FROM profesional_horarios WHERE profesional_id = ? ORDER BY CASE dia_semana WHEN 'Lunes' THEN 1 WHEN 'Martes' THEN 2 WHEN 'Miércoles' THEN 3 WHEN 'Jueves' THEN 4 WHEN 'Viernes' THEN 5 WHEN 'Sábado' THEN 6 WHEN 'Domingo' THEN 7 END",
+    [id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    },
+  );
+});
 // Obtener configuración (para compatibilidad - deprecado)
 app.get("/api/configuracion", (req, res) => {
   // Por ahora devuelve horarios del primer profesional como fallback
@@ -67,6 +80,50 @@ app.get("/api/configuracion", (req, res) => {
 });
 
 // ========== RUTAS DE TURNOS ==========
+
+// Actualizar horarios de un profesional
+app.put("/api/profesionales/:id/horarios/:dia", (req, res) => {
+  const { id, dia } = req.params;
+  const { hora_inicio, hora_fin, activo } = req.body;
+
+  const sql = `UPDATE profesional_horarios 
+               SET hora_inicio = ?, hora_fin = ?, activo = ?
+               WHERE profesional_id = ? AND dia_semana = ?`;
+
+  db.run(sql, [hora_inicio, hora_fin, activo ? 1 : 0, id, dia], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: "Horario actualizado" });
+  });
+});
+
+// Crear/Actualizar horario (upsert)
+app.post("/api/profesionales/:id/horarios", (req, res) => {
+  const { id } = req.params;
+  const { dia_semana, hora_inicio, hora_fin, activo } = req.body;
+
+  const sql = `INSERT INTO profesional_horarios (profesional_id, dia_semana, hora_inicio, hora_fin, activo)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(profesional_id, dia_semana) 
+               DO UPDATE SET hora_inicio = ?, hora_fin = ?, activo = ?`;
+
+  db.run(
+    sql,
+    [
+      id,
+      dia_semana,
+      hora_inicio,
+      hora_fin,
+      activo ? 1 : 0,
+      hora_inicio,
+      hora_fin,
+      activo ? 1 : 0,
+    ],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: "Horario guardado" });
+    },
+  );
+});
 
 // Obtener turnos existentes (para evitar solapamientos)
 app.get("/api/turnos", (req, res) => {

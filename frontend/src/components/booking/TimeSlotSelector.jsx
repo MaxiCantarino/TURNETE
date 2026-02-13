@@ -1,5 +1,8 @@
 import React from "react";
-import { generateTimeSlots, isTimeSlotAvailable } from "../../utils/dateUtils";
+import {
+  generateTimeSlotsWithBreak,
+  isTimeSlotAvailable,
+} from "../../utils/dateUtils";
 
 const TimeSlotSelector = ({
   configuracion,
@@ -80,9 +83,11 @@ const TimeSlotSelector = ({
     );
   }
 
-  const slots = generateTimeSlots(
+  const slots = generateTimeSlotsWithBreak(
     configDelDia.hora_inicio,
     configDelDia.hora_fin,
+    configDelDia.hora_inicio_tarde,
+    configDelDia.hora_fin_tarde,
     duracionServicio,
   );
 

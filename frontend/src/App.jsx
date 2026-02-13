@@ -14,6 +14,7 @@ import AdminClientes from "./pages/AdminClientes";
 import AdminAgenda from "./pages/AdminAgenda";
 import AdminServicios from "./pages/AdminServicios";
 import AdminProfesionales from "./pages/AdminProfesionales";
+import AdminHorarios2 from "./pages/AdminHorarios2";
 
 // Componente para proteger rutas que requieren autenticación
 const ProtectedRoute = ({ children }) => {
@@ -51,6 +52,7 @@ function AppRoutes() {
       <Route path="/admin/profesionales" element={<AdminProfesionales />} />
       <Route path="/admin/agenda" element={<AdminAgenda />} />
       <Route path="/admin/servicios" element={<AdminServicios />} />
+      <Route path="/admin/horarios" element={<AdminHorarios2 />} />
 
       {/* Redirección para rutas no encontradas */}
       <Route path="*" element={<Navigate to="/" replace />} />

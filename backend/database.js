@@ -23,17 +23,19 @@ db.serialize(() => {
     imagen_url TEXT
   )`);
 
-  // Tabla de horarios POR PROFESIONAL
+  // Tabla de horarios POR PROFESIONAL (con horarios cortados)
   db.run(`CREATE TABLE IF NOT EXISTS profesional_horarios (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    profesional_id INTEGER NOT NULL,
-    dia_semana TEXT NOT NULL,
-    hora_inicio TEXT NOT NULL,
-    hora_fin TEXT NOT NULL,
-    activo INTEGER DEFAULT 1,
-    FOREIGN KEY (profesional_id) REFERENCES profesionales(id),
-    UNIQUE(profesional_id, dia_semana)
-  )`);
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  profesional_id INTEGER NOT NULL,
+  dia_semana TEXT NOT NULL,
+  hora_inicio TEXT NOT NULL,
+  hora_fin TEXT NOT NULL,
+  hora_inicio_tarde TEXT,
+  hora_fin_tarde TEXT,
+  activo INTEGER DEFAULT 1,
+  FOREIGN KEY (profesional_id) REFERENCES profesionales(id),
+  UNIQUE(profesional_id, dia_semana)
+)`);
 
   // Tabla de clientes
   db.run(`CREATE TABLE IF NOT EXISTS clientes (
@@ -130,23 +132,65 @@ db.serialize(() => {
     },
   );
 
-  // Insertar horarios por defecto para cada profesional
+  // Insertar horarios por defecto para cada profesional (con horarios cortados)
   const horariosPorDefecto = [
-    { dia: "Lunes", inicio: "09:00", fin: "18:00" },
-    { dia: "Martes", inicio: "09:00", fin: "18:00" },
-    { dia: "Miércoles", inicio: "09:00", fin: "18:00" },
-    { dia: "Jueves", inicio: "09:00", fin: "18:00" },
-    { dia: "Viernes", inicio: "09:00", fin: "18:00" },
-    { dia: "Sábado", inicio: "10:00", fin: "14:00" },
-    { dia: "Domingo", inicio: "10:00", fin: "14:00" },
+    {
+      dia: "Lunes",
+      inicio: "09:00",
+      fin: "13:00",
+      inicioTarde: "14:00",
+      finTarde: "18:00",
+    },
+    {
+      dia: "Martes",
+      inicio: "09:00",
+      fin: "13:00",
+      inicioTarde: "14:00",
+      finTarde: "18:00",
+    },
+    {
+      dia: "Miércoles",
+      inicio: "09:00",
+      fin: "13:00",
+      inicioTarde: "14:00",
+      finTarde: "18:00",
+    },
+    {
+      dia: "Jueves",
+      inicio: "09:00",
+      fin: "13:00",
+      inicioTarde: "14:00",
+      finTarde: "18:00",
+    },
+    {
+      dia: "Viernes",
+      inicio: "09:00",
+      fin: "13:00",
+      inicioTarde: "14:00",
+      finTarde: "18:00",
+    },
+    {
+      dia: "Sábado",
+      inicio: "10:00",
+      fin: "14:00",
+      inicioTarde: null,
+      finTarde: null,
+    },
+    {
+      dia: "Domingo",
+      inicio: "10:00",
+      fin: "14:00",
+      inicioTarde: null,
+      finTarde: null,
+    },
   ];
 
   // Asignar horarios a cada profesional (1-5)
   for (let profId = 1; profId <= 5; profId++) {
     horariosPorDefecto.forEach((h) => {
       db.run(
-        `INSERT OR IGNORE INTO profesional_horarios (profesional_id, dia_semana, hora_inicio, hora_fin) VALUES (?, ?, ?, ?)`,
-        [profId, h.dia, h.inicio, h.fin],
+        `INSERT OR IGNORE INTO profesional_horarios (profesional_id, dia_semana, hora_inicio, hora_fin, hora_inicio_tarde, hora_fin_tarde) VALUES (?, ?, ?, ?, ?, ?)`,
+        [profId, h.dia, h.inicio, h.fin, h.inicioTarde, h.finTarde],
       );
     });
   }

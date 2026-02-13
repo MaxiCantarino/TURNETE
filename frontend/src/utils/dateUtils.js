@@ -109,6 +109,28 @@ export const isTimeSlotAvailable = (slot, turnosExistentes) => {
   });
 };
 
+// Generar slots para horarios cortados (mañana y tarde)
+export const generateTimeSlotsWithBreak = (
+  horaMañanaInicio,
+  horaMañanaFin,
+  horaTardeInicio,
+  horaTardeFin,
+  duracion,
+) => {
+  const slotsMañana = generateTimeSlots(
+    horaMañanaInicio,
+    horaMañanaFin,
+    duracion,
+  );
+
+  let slotsTarde = [];
+  if (horaTardeInicio && horaTardeFin) {
+    slotsTarde = generateTimeSlots(horaTardeInicio, horaTardeFin, duracion);
+  }
+
+  return [...slotsMañana, ...slotsTarde];
+};
+
 export default {
   formatDate,
   formatDisplayDate,
@@ -116,6 +138,7 @@ export default {
   parseTime,
   addMinutesToTime,
   generateTimeSlots,
+  generateTimeSlotsWithBreak,
   getWeekDates,
   getDayName,
   isTimeSlotAvailable,
