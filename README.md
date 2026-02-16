@@ -164,7 +164,7 @@ Este es un proyecto comercial en desarrollo activo. El código fuente se encuent
 
 ---
 
-## 📞 Contacto
+## 📞 Contacto +5493512607315
 
 ### Para consultas sobre:
 - 🎥 Demos personalizadas
@@ -172,7 +172,9 @@ Este es un proyecto comercial en desarrollo activo. El código fuente se encuent
 - 🤝 Colaboraciones
 - 💬 Implementación personalizada
 
-**Contacto:** [Tu email o LinkedIn]
+**Contacto:** [cantarinoe@gmail.com]
+
+Desarollado por Kairos
 
 ---
 
@@ -183,8 +185,6 @@ _Próximamente: Capturas de pantalla del sistema en producción_
 ---
 
 ## 🔒 Nota de Privacidad
-
-Este repositorio contiene el historial de desarrollo del proyecto. Por razones de seguridad y protección de propiedad intelectual, los detalles técnicos específicos, scripts de base de datos y configuraciones sensibles no están incluidos en este README público.
 
 **Para acceso completo a documentación técnica, contactar al equipo de desarrollo.**
 
