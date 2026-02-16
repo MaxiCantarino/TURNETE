@@ -3,7 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const { google } = require("googleapis");
-const db = require("./database");
+const { pool } = require("./database");
+const { requireBusiness } = require("./middleware/businessMiddleware");
 
 const app = express();
 const PORT = 5000;
@@ -19,127 +20,195 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_REDIRECT_URI,
 );
 
-// --- RUTAS DE LA API ---
-
 // ========== RUTAS DE PROFESIONALES ==========
-app.get("/api/profesionales", (req, res) => {
-  db.all("SELECT * FROM profesionales", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+
+app.get("/api/profesionales", requireBusiness, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM tenant_paula.profesionales WHERE business_id = $1",
+      [req.businessId],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo profesionales:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ========== RUTAS DE SERVICIOS ==========
-app.get("/api/servicios", (req, res) => {
-  db.all("SELECT * FROM servicios", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+
+app.get("/api/servicios", requireBusiness, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM tenant_paula.servicios WHERE business_id = $1",
+      [req.businessId],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo servicios:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ========== RUTAS DE CONFIGURACIÓN ==========
 
 // Obtener horarios de un profesional específico
-app.get("/api/profesionales/:id/horarios", (req, res) => {
-  const { id } = req.params;
+app.get(
+  "/api/profesionales/:id/horarios",
+  requireBusiness,
+  async (req, res) => {
+    const { id } = req.params;
 
-  db.all(
-    "SELECT * FROM profesional_horarios WHERE profesional_id = ? AND activo = 1",
-    [id],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows);
-    },
-  );
-});
+    try {
+      const result = await pool.query(
+        `SELECT * FROM tenant_paula.profesional_horarios 
+       WHERE business_id = $1 AND profesional_id = $2 AND activo = true`,
+        [req.businessId, id],
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error obteniendo horarios:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
 // Obtener TODOS los horarios de un profesional (para admin - incluye inactivos)
-app.get("/api/profesionales/:id/horarios/all", (req, res) => {
-  const { id } = req.params;
+app.get(
+  "/api/profesionales/:id/horarios/all",
+  requireBusiness,
+  async (req, res) => {
+    const { id } = req.params;
 
-  db.all(
-    "SELECT * FROM profesional_horarios WHERE profesional_id = ? ORDER BY CASE dia_semana WHEN 'Lunes' THEN 1 WHEN 'Martes' THEN 2 WHEN 'Miércoles' THEN 3 WHEN 'Jueves' THEN 4 WHEN 'Viernes' THEN 5 WHEN 'Sábado' THEN 6 WHEN 'Domingo' THEN 7 END",
-    [id],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows);
-    },
-  );
-});
+    try {
+      const result = await pool.query(
+        `SELECT * FROM tenant_paula.profesional_horarios 
+       WHERE business_id = $1 AND profesional_id = $2 
+       ORDER BY CASE dia_semana 
+         WHEN 'Lunes' THEN 1 
+         WHEN 'Martes' THEN 2 
+         WHEN 'Miércoles' THEN 3 
+         WHEN 'Jueves' THEN 4 
+         WHEN 'Viernes' THEN 5 
+         WHEN 'Sábado' THEN 6 
+         WHEN 'Domingo' THEN 7 
+       END`,
+        [req.businessId, id],
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error obteniendo horarios:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
 // Obtener configuración (para compatibilidad - deprecado)
-app.get("/api/configuracion", (req, res) => {
-  // Por ahora devuelve horarios del primer profesional como fallback
-  db.all(
-    "SELECT dia_semana, hora_inicio, hora_fin FROM profesional_horarios WHERE profesional_id = 1 AND activo = 1",
-    [],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows);
-    },
-  );
+app.get("/api/configuracion", requireBusiness, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT dia_semana, hora_inicio, hora_fin, hora_inicio_tarde, hora_fin_tarde 
+       FROM tenant_paula.profesional_horarios 
+       WHERE business_id = $1 AND profesional_id = 1 AND activo = true`,
+      [req.businessId],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo configuración:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
-
-// ========== RUTAS DE TURNOS ==========
 
 // Actualizar horarios de un profesional
-app.put("/api/profesionales/:id/horarios/:dia", (req, res) => {
-  const { id, dia } = req.params;
-  const { hora_inicio, hora_fin, activo } = req.body;
+app.put(
+  "/api/profesionales/:id/horarios/:dia",
+  requireBusiness,
+  async (req, res) => {
+    const { id, dia } = req.params;
+    const { hora_inicio, hora_fin, activo } = req.body;
 
-  const sql = `UPDATE profesional_horarios 
-               SET hora_inicio = ?, hora_fin = ?, activo = ?
-               WHERE profesional_id = ? AND dia_semana = ?`;
+    try {
+      await pool.query(
+        `UPDATE tenant_paula.profesional_horarios 
+       SET hora_inicio = $1, hora_fin = $2, activo = $3
+       WHERE business_id = $4 AND profesional_id = $5 AND dia_semana = $6`,
+        [hora_inicio, hora_fin, activo ? true : false, req.businessId, id, dia],
+      );
+      res.json({ message: "Horario actualizado" });
+    } catch (error) {
+      console.error("Error actualizando horario:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
-  db.run(sql, [hora_inicio, hora_fin, activo ? 1 : 0, id, dia], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ message: "Horario actualizado" });
-  });
-});
-
-// Crear/Actualizar horario (upsert)
-app.post("/api/profesionales/:id/horarios", (req, res) => {
-  const { id } = req.params;
-  const { dia_semana, hora_inicio, hora_fin, activo } = req.body;
-
-  const sql = `INSERT INTO profesional_horarios (profesional_id, dia_semana, hora_inicio, hora_fin, activo)
-               VALUES (?, ?, ?, ?, ?)
-               ON CONFLICT(profesional_id, dia_semana) 
-               DO UPDATE SET hora_inicio = ?, hora_fin = ?, activo = ?`;
-
-  db.run(
-    sql,
-    [
-      id,
+// Crear/Actualizar horario (upsert) - CON HORARIOS CORTADOS
+app.post(
+  "/api/profesionales/:id/horarios",
+  requireBusiness,
+  async (req, res) => {
+    const { id } = req.params;
+    const {
       dia_semana,
       hora_inicio,
       hora_fin,
-      activo ? 1 : 0,
-      hora_inicio,
-      hora_fin,
-      activo ? 1 : 0,
-    ],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
+      hora_inicio_tarde,
+      hora_fin_tarde,
+      activo,
+    } = req.body;
+
+    try {
+      await pool.query(
+        `INSERT INTO tenant_paula.profesional_horarios 
+       (business_id, profesional_id, dia_semana, hora_inicio, hora_fin, hora_inicio_tarde, hora_fin_tarde, activo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (profesional_id, dia_semana) 
+       DO UPDATE SET 
+         hora_inicio = $4, 
+         hora_fin = $5, 
+         hora_inicio_tarde = $6, 
+         hora_fin_tarde = $7, 
+         activo = $8`,
+        [
+          req.businessId,
+          id,
+          dia_semana,
+          hora_inicio,
+          hora_fin,
+          hora_inicio_tarde,
+          hora_fin_tarde,
+          activo ? true : false,
+        ],
+      );
       res.json({ message: "Horario guardado" });
-    },
-  );
-});
+    } catch (error) {
+      console.error("Error guardando horario:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+// ========== RUTAS DE TURNOS ==========
 
 // Obtener turnos existentes (para evitar solapamientos)
-app.get("/api/turnos", (req, res) => {
+app.get("/api/turnos", requireBusiness, async (req, res) => {
   const { fecha_desde, fecha_hasta, profesional_id } = req.query;
-  db.all(
-    "SELECT * FROM turnos WHERE fecha BETWEEN ? AND ? AND profesional_id = ?",
-    [fecha_desde, fecha_hasta, profesional_id],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows || []);
-    },
-  );
+
+  try {
+    const result = await pool.query(
+      `SELECT * FROM tenant_paula.turnos 
+       WHERE business_id = $1 AND fecha BETWEEN $2 AND $3 AND profesional_id = $4`,
+      [req.businessId, fecha_desde, fecha_hasta, profesional_id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo turnos:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Crear un nuevo turno y sincronizar con Google
-app.post("/api/turnos", (req, res) => {
+app.post("/api/turnos", requireBusiness, async (req, res) => {
   const {
     servicio_id,
     profesional_id,
@@ -154,409 +223,690 @@ app.post("/api/turnos", (req, res) => {
     notas,
   } = req.body;
 
-  const sql = `INSERT INTO turnos (
-    servicio_id, profesional_id, cliente_id, cliente_nombre, cliente_whatsapp, 
-    fecha, hora_inicio, hora_fin, precio_pagado, saldo_pendiente, notas
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const client = await pool.connect();
 
-  db.run(
-    sql,
-    [
-      servicio_id,
-      profesional_id,
-      cliente_id || null,
-      cliente_nombre,
-      cliente_whatsapp,
-      fecha,
-      hora_inicio,
-      hora_fin,
-      precio_pagado || 0,
-      saldo_pendiente || 0,
-      notas || null,
-    ],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
+  try {
+    // Iniciar transacción
+    await client.query("BEGIN");
+    await client.query("SET search_path TO tenant_paula, public");
 
-      const nuevoId = this.lastID;
+    // Verificar disponibilidad (evitar doble reserva)
+    const checkResult = await client.query(
+      `SELECT id FROM turnos 
+       WHERE business_id = $1 AND profesional_id = $2 AND fecha = $3 AND hora_inicio = $4`,
+      [req.businessId, profesional_id, fecha, hora_inicio],
+    );
 
-      // Buscar si el profesional tiene Google vinculado
-      db.get(
-        "SELECT * FROM google_tokens WHERE profesional_id = ?",
-        [profesional_id],
-        async (err, row) => {
-          if (row) {
-            try {
-              oauth2Client.setCredentials({
-                access_token: row.access_token,
-                refresh_token: row.refresh_token,
-                expiry_date: row.expiry_date,
-              });
-              const calendar = google.calendar({
-                version: "v3",
-                auth: oauth2Client,
-              });
-              await calendar.events.insert({
-                calendarId: "primary",
-                requestBody: {
-                  summary: `Turno: ${cliente_nombre}`,
-                  description: `WhatsApp: ${cliente_whatsapp}`,
-                  start: {
-                    dateTime: `${fecha}T${hora_inicio}:00`,
-                    timeZone: "America/Argentina/Buenos_Aires",
-                  },
-                  end: {
-                    dateTime: `${fecha}T${hora_fin}:00`,
-                    timeZone: "America/Argentina/Buenos_Aires",
-                  },
-                },
-              });
-              console.log(
-                `✅ Turno ${nuevoId} sincronizado con Google Calendar.`,
-              );
-            } catch (e) {
-              console.error(
-                "❌ Error al sincronizar con Google Calendar:",
-                e.message,
-              );
-            }
-          }
-        },
-      );
+    if (checkResult.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "Este horario ya está reservado" });
+    }
 
-      res.json({ id: nuevoId });
-    },
-  );
+    // Insertar turno
+    const insertResult = await client.query(
+      `INSERT INTO turnos (
+        business_id, servicio_id, profesional_id, cliente_id, cliente_nombre, cliente_whatsapp, 
+        fecha, hora_inicio, hora_fin, precio_pagado, saldo_pendiente, notas
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING id`,
+      [
+        req.businessId,
+        servicio_id,
+        profesional_id,
+        cliente_id || null,
+        cliente_nombre,
+        cliente_whatsapp,
+        fecha,
+        hora_inicio,
+        hora_fin,
+        precio_pagado || 0,
+        saldo_pendiente || 0,
+        notas || null,
+      ],
+    );
+
+    const nuevoId = insertResult.rows[0].id;
+
+    // Commit transacción
+    await client.query("COMMIT");
+
+    // Buscar si el profesional tiene Google vinculado (sin transacción)
+    const tokenResult = await pool.query(
+      "SELECT * FROM tenant_paula.google_tokens WHERE business_id = $1 AND profesional_id = $2",
+      [req.businessId, profesional_id],
+    );
+
+    if (tokenResult.rows.length > 0) {
+      const row = tokenResult.rows[0];
+      try {
+        oauth2Client.setCredentials({
+          access_token: row.access_token,
+          refresh_token: row.refresh_token,
+          expiry_date: row.expiry_date,
+        });
+        const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+        await calendar.events.insert({
+          calendarId: "primary",
+          requestBody: {
+            summary: `Turno: ${cliente_nombre}`,
+            description: `WhatsApp: ${cliente_whatsapp}`,
+            start: {
+              dateTime: `${fecha}T${hora_inicio}:00`,
+              timeZone: "America/Argentina/Buenos_Aires",
+            },
+            end: {
+              dateTime: `${fecha}T${hora_fin}:00`,
+              timeZone: "America/Argentina/Buenos_Aires",
+            },
+          },
+        });
+        console.log(`✅ Turno ${nuevoId} sincronizado con Google Calendar.`);
+      } catch (e) {
+        console.error(
+          "❌ Error al sincronizar con Google Calendar:",
+          e.message,
+        );
+      }
+    }
+
+    res.json({ id: nuevoId });
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    // Manejar error de constraint UNIQUE (23505)
+    if (error.code === "23505") {
+      return res.status(409).json({ error: "Este horario ya está reservado" });
+    }
+
+    console.error("Error creando turno:", error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
 });
 
 // Actualizar estado de turno
-app.put("/api/turnos/:id/estado", (req, res) => {
+app.put("/api/turnos/:id/estado", requireBusiness, async (req, res) => {
   const { estado } = req.body;
-  db.run(
-    "UPDATE turnos SET estado = ? WHERE id = ?",
-    [estado, req.params.id],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "Estado actualizado" });
-    },
-  );
+
+  try {
+    await pool.query(
+      `UPDATE tenant_paula.turnos 
+       SET estado = $1 
+       WHERE business_id = $2 AND id = $3`,
+      [estado, req.businessId, req.params.id],
+    );
+    res.json({ message: "Estado actualizado" });
+  } catch (error) {
+    console.error("Error actualizando estado:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Eliminar turno
-app.delete("/api/turnos/:id", (req, res) => {
-  db.run("DELETE FROM turnos WHERE id = ?", [req.params.id], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
+app.delete("/api/turnos/:id", requireBusiness, async (req, res) => {
+  try {
+    await pool.query(
+      "DELETE FROM tenant_paula.turnos WHERE business_id = $1 AND id = $2",
+      [req.businessId, req.params.id],
+    );
     res.json({ message: "Turno eliminado" });
-  });
+  } catch (error) {
+    console.error("Error eliminando turno:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ========== RUTAS DE CLIENTES ==========
 
-// Buscar cliente por DNI
-app.get("/api/clientes/dni/:dni", (req, res) => {
+// Buscar cliente por WhatsApp (nuevo identificador)
+app.get(
+  "/api/clientes/whatsapp/:whatsapp",
+  requireBusiness,
+  async (req, res) => {
+    const { whatsapp } = req.params;
+
+    try {
+      const result = await pool.query(
+        "SELECT * FROM tenant_paula.clientes WHERE business_id = $1 AND whatsapp = $2",
+        [req.businessId, whatsapp],
+      );
+      res.json(result.rows[0] || null);
+    } catch (error) {
+      console.error("Error buscando cliente:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+// Buscar cliente por DNI (compatibilidad - deprecado)
+app.get("/api/clientes/dni/:dni", requireBusiness, async (req, res) => {
   const { dni } = req.params;
-  db.get("SELECT * FROM clientes WHERE dni = ?", [dni], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(row || null);
-  });
+
+  try {
+    const result = await pool.query(
+      "SELECT * FROM tenant_paula.clientes WHERE business_id = $1 AND whatsapp = $2",
+      [req.businessId, dni],
+    );
+    res.json(result.rows[0] || null);
+  } catch (error) {
+    console.error("Error buscando cliente:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Crear nuevo cliente
-app.post("/api/clientes", (req, res) => {
-  const { dni, nombre, apellido, edad, telefono, email } = req.body;
+app.post("/api/clientes", requireBusiness, async (req, res) => {
+  const { whatsapp, nombre, apellido, edad, telefono, email } = req.body;
 
-  const sql = `INSERT INTO clientes (dni, nombre, apellido, edad, telefono, email) 
-               VALUES (?, ?, ?, ?, ?, ?)`;
-
-  db.run(sql, [dni, nombre, apellido, edad, telefono, email], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ id: this.lastID, dni, nombre, apellido });
-  });
+  try {
+    const result = await pool.query(
+      `INSERT INTO tenant_paula.clientes (business_id, whatsapp, nombre, apellido, edad, telefono, email) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, whatsapp, nombre, apellido`,
+      [req.businessId, whatsapp, nombre, apellido, edad, telefono, email],
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error creando cliente:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Obtener historial de turnos de un cliente
-app.get("/api/clientes/:id/turnos", (req, res) => {
+app.get("/api/clientes/:id/turnos", requireBusiness, async (req, res) => {
   const { id } = req.params;
 
-  const sql = `
-    SELECT t.*, s.nombre as servicio_nombre, s.precio, s.categoria,
-           p.nombre as profesional_nombre
-    FROM turnos t
-    JOIN servicios s ON t.servicio_id = s.id
-    JOIN profesionales p ON t.profesional_id = p.id
-    WHERE t.cliente_id = ?
-    ORDER BY t.fecha DESC, t.hora_inicio DESC
-  `;
-
-  db.all(sql, [id], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+  try {
+    const result = await pool.query(
+      `SELECT t.*, s.nombre as servicio_nombre, s.precio, s.categoria,
+              p.nombre as profesional_nombre
+       FROM tenant_paula.turnos t
+       JOIN tenant_paula.servicios s ON t.servicio_id = s.id
+       JOIN tenant_paula.profesionales p ON t.profesional_id = p.id
+       WHERE t.business_id = $1 AND t.cliente_id = $2
+       ORDER BY t.fecha DESC, t.hora_inicio DESC`,
+      [req.businessId, id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo historial:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Actualizar saldo de deuda de cliente
-app.put("/api/clientes/:id/deuda", (req, res) => {
+app.put("/api/clientes/:id/deuda", requireBusiness, async (req, res) => {
   const { id } = req.params;
   const { saldo_deuda } = req.body;
 
-  db.run(
-    "UPDATE clientes SET saldo_deuda = ? WHERE id = ?",
-    [saldo_deuda, id],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "Saldo actualizado" });
-    },
-  );
+  try {
+    await pool.query(
+      "UPDATE tenant_paula.clientes SET saldo_deuda = $1 WHERE business_id = $2 AND id = $3",
+      [saldo_deuda, req.businessId, id],
+    );
+    res.json({ message: "Saldo actualizado" });
+  } catch (error) {
+    console.error("Error actualizando saldo:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Obtener todos los clientes (para admin)
-app.get("/api/clientes", (req, res) => {
-  db.all("SELECT * FROM clientes ORDER BY creado_en DESC", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+app.get("/api/clientes", requireBusiness, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM tenant_paula.clientes WHERE business_id = $1 ORDER BY creado_en DESC",
+      [req.businessId],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo clientes:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
+
 // ========== RUTAS ADMIN ==========
 
 // Obtener todos los turnos con detalles (para admin)
-app.get("/api/admin/turnos", (req, res) => {
+app.get("/api/admin/turnos", requireBusiness, async (req, res) => {
   const { fecha, estado, profesional_id } = req.query;
 
   let sql = `
-  SELECT t.*, 
-         s.nombre as servicio_nombre, s.precio, s.categoria, s.duracion,
-         p.nombre as profesional_nombre, p.color as profesional_color,
-         c.nombre as cliente_nombre_completo, c.apellido, c.dni, c.telefono
-  FROM turnos t
-    LEFT JOIN servicios s ON t.servicio_id = s.id
-    LEFT JOIN profesionales p ON t.profesional_id = p.id
-    LEFT JOIN clientes c ON t.cliente_id = c.id
-    WHERE 1=1
+    SELECT t.*, 
+           s.nombre as servicio_nombre, s.precio, s.categoria, s.duracion,
+           p.nombre as profesional_nombre, p.color as profesional_color,
+           c.nombre as cliente_nombre_completo, c.apellido, c.whatsapp, c.telefono
+    FROM tenant_paula.turnos t
+    LEFT JOIN tenant_paula.servicios s ON t.servicio_id = s.id
+    LEFT JOIN tenant_paula.profesionales p ON t.profesional_id = p.id
+    LEFT JOIN tenant_paula.clientes c ON t.cliente_id = c.id
+    WHERE t.business_id = $1
   `;
 
-  const params = [];
+  const params = [req.businessId];
+  let paramIndex = 2;
 
   if (fecha) {
-    sql += " AND t.fecha = ?";
+    sql += ` AND t.fecha = $${paramIndex}`;
     params.push(fecha);
+    paramIndex++;
   }
 
   if (estado) {
-    sql += " AND t.estado = ?";
+    sql += ` AND t.estado = $${paramIndex}`;
     params.push(estado);
+    paramIndex++;
   }
 
   if (profesional_id) {
-    sql += " AND t.profesional_id = ?";
+    sql += ` AND t.profesional_id = $${paramIndex}`;
     params.push(profesional_id);
+    paramIndex++;
   }
 
   sql += " ORDER BY t.fecha DESC, t.hora_inicio DESC";
 
-  db.all(sql, params, (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+  try {
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo turnos admin:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Obtener estadísticas del dashboard
-app.get("/api/admin/estadisticas", (req, res) => {
-  const stats = {};
-
-  // Turnos de hoy
+app.get("/api/admin/estadisticas", requireBusiness, async (req, res) => {
   const hoy = new Date().toISOString().split("T")[0];
-  db.get(
-    "SELECT COUNT(*) as total FROM turnos WHERE fecha = ? AND estado != 'cancelado'",
-    [hoy],
-    (err, row) => {
-      stats.turnosHoy = row?.total || 0;
 
-      // Turnos pendientes (futuros)
-      db.get(
-        "SELECT COUNT(*) as total FROM turnos WHERE fecha >= ? AND estado = 'pendiente'",
-        [hoy],
-        (err, row) => {
-          stats.turnosPendientes = row?.total || 0;
+  try {
+    const turnosHoyResult = await pool.query(
+      `SELECT COUNT(*) as total FROM tenant_paula.turnos 
+       WHERE business_id = $1 AND fecha = $2 AND estado != 'cancelado'`,
+      [req.businessId, hoy],
+    );
 
-          // Total clientes
-          db.get("SELECT COUNT(*) as total FROM clientes", [], (err, row) => {
-            stats.totalClientes = row?.total || 0;
+    const turnosPendientesResult = await pool.query(
+      `SELECT COUNT(*) as total FROM tenant_paula.turnos 
+       WHERE business_id = $1 AND fecha >= $2 AND estado = 'pendiente'`,
+      [req.businessId, hoy],
+    );
 
-            // Deuda total
-            db.get(
-              "SELECT SUM(saldo_deuda) as total FROM clientes",
-              [],
-              (err, row) => {
-                stats.deudaTotal = row?.total || 0;
+    const totalClientesResult = await pool.query(
+      "SELECT COUNT(*) as total FROM tenant_paula.clientes WHERE business_id = $1",
+      [req.businessId],
+    );
 
-                res.json(stats);
-              },
-            );
-          });
-        },
-      );
-    },
-  );
+    const deudaTotalResult = await pool.query(
+      "SELECT SUM(saldo_deuda) as total FROM tenant_paula.clientes WHERE business_id = $1",
+      [req.businessId],
+    );
+
+    res.json({
+      turnosHoy: parseInt(turnosHoyResult.rows[0].total),
+      turnosPendientes: parseInt(turnosPendientesResult.rows[0].total),
+      totalClientes: parseInt(totalClientesResult.rows[0].total),
+      deudaTotal: parseFloat(deudaTotalResult.rows[0].total) || 0,
+    });
+  } catch (error) {
+    console.error("Error obteniendo estadísticas:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Actividad reciente (últimos 10 turnos)
-app.get("/api/admin/actividad-reciente", (req, res) => {
-  const sql = `
-    SELECT t.*, 
-           s.nombre as servicio_nombre,
-           p.nombre as profesional_nombre,
-           c.nombre as cliente_nombre, c.apellido
-    FROM turnos t
-    LEFT JOIN servicios s ON t.servicio_id = s.id
-    LEFT JOIN profesionales p ON t.profesional_id = p.id
-    LEFT JOIN clientes c ON t.cliente_id = c.id
-    ORDER BY t.creado_en DESC
-    LIMIT 10
-  `;
-
-  db.all(sql, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+app.get("/api/admin/actividad-reciente", requireBusiness, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT t.*, 
+              s.nombre as servicio_nombre,
+              p.nombre as profesional_nombre,
+              c.nombre as cliente_nombre, c.apellido
+       FROM tenant_paula.turnos t
+       LEFT JOIN tenant_paula.servicios s ON t.servicio_id = s.id
+       LEFT JOIN tenant_paula.profesionales p ON t.profesional_id = p.id
+       LEFT JOIN tenant_paula.clientes c ON t.cliente_id = c.id
+       WHERE t.business_id = $1
+       ORDER BY t.creado_en DESC
+       LIMIT 10`,
+      [req.businessId],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo actividad reciente:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Obtener turnos para recordatorios (mañana)
-app.get("/api/admin/recordatorios", (req, res) => {
-  // Calcular fecha de mañana
+app.get("/api/admin/recordatorios", requireBusiness, async (req, res) => {
   const mañana = new Date();
   mañana.setDate(mañana.getDate() + 1);
   const fechaMañana = mañana.toISOString().split("T")[0];
 
-  const sql = `
-  SELECT t.*, 
-         s.nombre as servicio_nombre,
-         p.nombre as profesional_nombre, p.color as profesional_color,
-         c.nombre as cliente_nombre, c.apellido, c.telefono
-  FROM turnos t 
-    LEFT JOIN servicios s ON t.servicio_id = s.id
-    LEFT JOIN profesionales p ON t.profesional_id = p.id
-    LEFT JOIN clientes c ON t.cliente_id = c.id
-    WHERE t.fecha = ? 
-    AND t.estado IN ('pendiente', 'confirmado')
-    ORDER BY t.hora_inicio ASC
-  `;
-
-  db.all(sql, [fechaMañana], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+  try {
+    const result = await pool.query(
+      `SELECT t.*, 
+              s.nombre as servicio_nombre,
+              p.nombre as profesional_nombre, p.color as profesional_color,
+              c.nombre as cliente_nombre, c.apellido, c.telefono
+       FROM tenant_paula.turnos t 
+       LEFT JOIN tenant_paula.servicios s ON t.servicio_id = s.id
+       LEFT JOIN tenant_paula.profesionales p ON t.profesional_id = p.id
+       LEFT JOIN tenant_paula.clientes c ON t.cliente_id = c.id
+       WHERE t.business_id = $1 AND t.fecha = $2 AND t.estado IN ('pendiente', 'confirmado')
+       ORDER BY t.hora_inicio ASC`,
+      [req.businessId, fechaMañana],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo recordatorios:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Actualizar servicio
-app.put("/api/admin/servicios/:id", (req, res) => {
+app.put("/api/admin/servicios/:id", requireBusiness, async (req, res) => {
   const { id } = req.params;
   const { nombre, duracion, precio, categoria, descripcion } = req.body;
 
-  const sql = `UPDATE servicios 
-               SET nombre = ?, duracion = ?, precio = ?, categoria = ?, descripcion = ?
-               WHERE id = ?`;
-
-  db.run(
-    sql,
-    [nombre, duracion, precio, categoria, descripcion, id],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "Servicio actualizado" });
-    },
-  );
+  try {
+    await pool.query(
+      `UPDATE tenant_paula.servicios 
+       SET nombre = $1, duracion = $2, precio = $3, categoria = $4, descripcion = $5
+       WHERE business_id = $6 AND id = $7`,
+      [nombre, duracion, precio, categoria, descripcion, req.businessId, id],
+    );
+    res.json({ message: "Servicio actualizado" });
+  } catch (error) {
+    console.error("Error actualizando servicio:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Crear servicio
-app.post("/api/admin/servicios", (req, res) => {
+app.post("/api/admin/servicios", requireBusiness, async (req, res) => {
   const { nombre, duracion, precio, categoria, descripcion } = req.body;
 
-  const sql = `INSERT INTO servicios (nombre, duracion, precio, categoria, descripcion)
-               VALUES (?, ?, ?, ?, ?)`;
-
-  db.run(
-    sql,
-    [nombre, duracion, precio, categoria, descripcion],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID });
-    },
-  );
+  try {
+    const result = await pool.query(
+      `INSERT INTO tenant_paula.servicios (business_id, nombre, duracion, precio, categoria, descripcion)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+      [req.businessId, nombre, duracion, precio, categoria, descripcion],
+    );
+    res.json({ id: result.rows[0].id });
+  } catch (error) {
+    console.error("Error creando servicio:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Eliminar servicio
-app.delete("/api/admin/servicios/:id", (req, res) => {
-  db.run("DELETE FROM servicios WHERE id = ?", [req.params.id], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
+app.delete("/api/admin/servicios/:id", requireBusiness, async (req, res) => {
+  try {
+    await pool.query(
+      "DELETE FROM tenant_paula.servicios WHERE business_id = $1 AND id = $2",
+      [req.businessId, req.params.id],
+    );
     res.json({ message: "Servicio eliminado" });
-  });
+  } catch (error) {
+    console.error("Error eliminando servicio:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
+
 // ========== RUTAS DE PROFESIONAL-SERVICIOS ==========
 
 // Obtener servicios asignados a un profesional
-app.get("/api/profesionales/:id/servicios", (req, res) => {
-  const { id } = req.params;
+app.get(
+  "/api/profesionales/:id/servicios",
+  requireBusiness,
+  async (req, res) => {
+    const { id } = req.params;
 
-  const sql = `
-    SELECT s.* 
-    FROM servicios s
-    INNER JOIN profesional_servicios ps ON s.id = ps.servicio_id
-    WHERE ps.profesional_id = ?
-  `;
-
-  db.all(sql, [id], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
-});
+    try {
+      const result = await pool.query(
+        `SELECT s.* 
+       FROM tenant_paula.servicios s
+       INNER JOIN tenant_paula.profesional_servicios ps ON s.id = ps.servicio_id
+       WHERE ps.business_id = $1 AND ps.profesional_id = $2`,
+        [req.businessId, id],
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error obteniendo servicios del profesional:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
 // Asignar servicio a profesional
-app.post("/api/profesionales/:id/servicios", (req, res) => {
-  const { id } = req.params;
-  const { servicio_id } = req.body;
+app.post(
+  "/api/profesionales/:id/servicios",
+  requireBusiness,
+  async (req, res) => {
+    const { id } = req.params;
+    const { servicio_id } = req.body;
 
-  const sql = `INSERT INTO profesional_servicios (profesional_id, servicio_id) 
-               VALUES (?, ?)`;
-
-  db.run(sql, [id, servicio_id], function (err) {
-    if (err) {
-      if (err.message.includes("UNIQUE")) {
+    try {
+      const result = await pool.query(
+        `INSERT INTO tenant_paula.profesional_servicios (business_id, profesional_id, servicio_id) 
+       VALUES ($1, $2, $3)
+       RETURNING id`,
+        [req.businessId, id, servicio_id],
+      );
+      res.json({ id: result.rows[0].id, message: "Servicio asignado" });
+    } catch (error) {
+      if (error.code === "23505") {
         return res.status(400).json({ error: "Servicio ya asignado" });
       }
-      return res.status(500).json({ error: err.message });
+      console.error("Error asignando servicio:", error);
+      res.status(500).json({ error: error.message });
     }
-    res.json({ id: this.lastID, message: "Servicio asignado" });
-  });
-});
+  },
+);
 
 // Desasignar servicio de profesional
-app.delete("/api/profesionales/:id/servicios/:servicio_id", (req, res) => {
-  const { id, servicio_id } = req.params;
+app.delete(
+  "/api/profesionales/:id/servicios/:servicio_id",
+  requireBusiness,
+  async (req, res) => {
+    const { id, servicio_id } = req.params;
 
-  db.run(
-    "DELETE FROM profesional_servicios WHERE profesional_id = ? AND servicio_id = ?",
-    [id, servicio_id],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
+    try {
+      await pool.query(
+        `DELETE FROM tenant_paula.profesional_servicios 
+       WHERE business_id = $1 AND profesional_id = $2 AND servicio_id = $3`,
+        [req.businessId, id, servicio_id],
+      );
       res.json({ message: "Servicio desasignado" });
-    },
-  );
-});
+    } catch (error) {
+      console.error("Error desasignando servicio:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
 // Obtener profesionales que ofrecen un servicio específico
-app.get("/api/servicios/:id/profesionales", (req, res) => {
-  const { id } = req.params;
+app.get(
+  "/api/servicios/:id/profesionales",
+  requireBusiness,
+  async (req, res) => {
+    const { id } = req.params;
 
-  const sql = `
-    SELECT p.* 
-    FROM profesionales p
-    INNER JOIN profesional_servicios ps ON p.id = ps.profesional_id
-    WHERE ps.servicio_id = ?
-  `;
+    try {
+      const result = await pool.query(
+        `SELECT p.* 
+       FROM tenant_paula.profesionales p
+       INNER JOIN tenant_paula.profesional_servicios ps ON p.id = ps.profesional_id
+       WHERE ps.business_id = $1 AND ps.servicio_id = $2`,
+        [req.businessId, id],
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error obteniendo profesionales del servicio:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
-  db.all(sql, [id], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+// ========== RUTAS DE SOBRETURNOS ==========
+
+// Obtener sobreturnos (por fecha y/o profesional)
+app.get("/api/sobreturnos", requireBusiness, async (req, res) => {
+  const { fecha, profesional_id } = req.query;
+
+  let sql = "SELECT * FROM tenant_paula.sobreturnos WHERE business_id = $1";
+  const params = [req.businessId];
+  let paramIndex = 2;
+
+  if (fecha) {
+    sql += ` AND fecha = $${paramIndex}`;
+    params.push(fecha);
+    paramIndex++;
+  }
+
+  if (profesional_id) {
+    sql += ` AND profesional_id = $${paramIndex}`;
+    params.push(profesional_id);
+    paramIndex++;
+  }
+
+  sql += " ORDER BY fecha, hora_inicio";
+
+  try {
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo sobreturnos:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
+
+// Crear nuevo sobreturno
+app.post("/api/sobreturnos", requireBusiness, async (req, res) => {
+  const { profesional_id, fecha, hora_inicio, hora_fin, motivo } = req.body;
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO tenant_paula.sobreturnos (business_id, profesional_id, fecha, hora_inicio, hora_fin, motivo)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+      [
+        req.businessId,
+        profesional_id,
+        fecha,
+        hora_inicio,
+        hora_fin,
+        motivo || null,
+      ],
+    );
+    res.json({
+      id: result.rows[0].id,
+      message: "Sobreturno creado correctamente",
+    });
+  } catch (error) {
+    console.error("Error creando sobreturno:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Eliminar sobreturno
+app.delete("/api/sobreturnos/:id", requireBusiness, async (req, res) => {
+  try {
+    await pool.query(
+      "DELETE FROM tenant_paula.sobreturnos WHERE business_id = $1 AND id = $2",
+      [req.businessId, req.params.id],
+    );
+    res.json({ message: "Sobreturno eliminado" });
+  } catch (error) {
+    console.error("Error eliminando sobreturno:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== RUTAS DE BLOQUES BLOQUEADOS ==========
+
+// Obtener bloques bloqueados (por rango de fechas y/o profesional)
+app.get("/api/bloques-bloqueados", requireBusiness, async (req, res) => {
+  const { fecha_desde, fecha_hasta, profesional_id } = req.query;
+
+  let sql =
+    "SELECT * FROM tenant_paula.bloques_bloqueados WHERE business_id = $1";
+  const params = [req.businessId];
+  let paramIndex = 2;
+
+  if (fecha_desde && fecha_hasta) {
+    sql += ` AND fecha BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+    params.push(fecha_desde, fecha_hasta);
+    paramIndex += 2;
+  }
+
+  if (profesional_id) {
+    sql += ` AND profesional_id = $${paramIndex}`;
+    params.push(profesional_id);
+    paramIndex++;
+  }
+
+  sql += " ORDER BY fecha, hora_inicio";
+
+  try {
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo bloques bloqueados:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Crear nuevo bloque bloqueado
+app.post("/api/bloques-bloqueados", requireBusiness, async (req, res) => {
+  const { profesional_id, fecha, hora_inicio, hora_fin, motivo } = req.body;
+
+  if (!profesional_id || !fecha || !hora_inicio || !hora_fin) {
+    return res.status(400).json({ error: "Faltan campos requeridos" });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO tenant_paula.bloques_bloqueados (business_id, profesional_id, fecha, hora_inicio, hora_fin, motivo)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+      [
+        req.businessId,
+        profesional_id,
+        fecha,
+        hora_inicio,
+        hora_fin,
+        motivo || null,
+      ],
+    );
+    res.json({
+      id: result.rows[0].id,
+      message: "Bloque bloqueado correctamente",
+    });
+  } catch (error) {
+    console.error("Error bloqueando bloque:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Eliminar bloque bloqueado
+app.delete("/api/bloques-bloqueados/:id", requireBusiness, async (req, res) => {
+  try {
+    await pool.query(
+      "DELETE FROM tenant_paula.bloques_bloqueados WHERE business_id = $1 AND id = $2",
+      [req.businessId, req.params.id],
+    );
+    res.json({ message: "Bloqueo eliminado" });
+  } catch (error) {
+    console.error("Error eliminando bloqueo:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // --- RUTAS DE AUTENTICACIÓN GOOGLE ---
 
 app.get("/api/auth/google/:id", (req, res) => {
@@ -573,15 +923,26 @@ app.get("/api/auth/google/callback", async (req, res) => {
   const { code, state } = req.query;
   try {
     const { tokens } = await oauth2Client.getToken(code);
-    db.run(
-      `INSERT OR REPLACE INTO google_tokens (profesional_id, access_token, refresh_token, expiry_date) VALUES (?, ?, ?, ?)`,
-      [state, tokens.access_token, tokens.refresh_token, tokens.expiry_date],
-      (err) => {
-        if (err) throw err;
-        console.log(`✅ Google vinculado para el profesional ID: ${state}`);
-        res.redirect("http://localhost:3000/admin?google=success");
-      },
+
+    // Hardcode business_id = 1 por ahora
+    const businessId = 1;
+
+    await pool.query(
+      `INSERT INTO tenant_paula.google_tokens (business_id, profesional_id, access_token, refresh_token, expiry_date) 
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (profesional_id) 
+       DO UPDATE SET access_token = $3, refresh_token = $4, expiry_date = $5`,
+      [
+        businessId,
+        state,
+        tokens.access_token,
+        tokens.refresh_token,
+        tokens.expiry_date,
+      ],
     );
+
+    console.log(`✅ Google vinculado para el profesional ID: ${state}`);
+    res.redirect("http://localhost:3000/admin?google=success");
   } catch (error) {
     console.error("Error en el callback de Google:", error);
     res.redirect("http://localhost:3000/admin?google=error");

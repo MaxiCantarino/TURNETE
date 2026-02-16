@@ -13,7 +13,7 @@ import { useCliente } from "../contexts/ClienteContext";
 import axios from "axios";
 
 const ClienteReserva = () => {
-  const { cliente } = useCliente();
+  const { cliente } = useCliente() || { cliente: null };
   const [step, setStep] = useState(1);
   const [servicios, setServicios] = useState([]);
   const [profesionales, setProfesionales] = useState([]);
@@ -647,10 +647,11 @@ const ClienteReserva = () => {
                 <TimeSlotSelector
                   configuracion={configuracion}
                   selectedDate={formData.fecha}
-                  duracionServicio={formData.servicio.duracion}
+                  duracionServicio={formData.servicio?.duracion}
                   turnosExistentes={turnosExistentes}
                   onTimeSelect={handleTimeSelect}
                   selectedTime={formData.horario}
+                  profesionalId={formData.profesional?.id}
                 />
               )}
             </div>

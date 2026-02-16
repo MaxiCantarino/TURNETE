@@ -8,6 +8,7 @@ import {
 import { ClienteProvider, useCliente } from "./contexts/ClienteContext";
 import LoginDNI from "./pages/LoginDNI";
 import ClienteReserva from "./pages/ClienteReserva";
+import Home from "./pages/Home";
 import HistorialCliente from "./pages/HistorialCliente";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminClientes from "./pages/AdminClientes";
@@ -30,12 +31,11 @@ const ProtectedRoute = ({ children }) => {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Ruta pública - Login */}
-      <Route path="/" element={<LoginDNI />} />
+      {/* Ruta pública - Home */}
+      <Route path="/" element={<ClienteReserva />} />
 
       {/* Ruta pública - Historial */}
       <Route path="/historial" element={<HistorialCliente />} />
-
       {/* Ruta protegida - Reserva */}
       <Route
         path="/reservar"
@@ -45,7 +45,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
       {/* Rutas admin */}
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/admin/clientes" element={<AdminClientes />} />
@@ -53,7 +52,6 @@ function AppRoutes() {
       <Route path="/admin/agenda" element={<AdminAgenda />} />
       <Route path="/admin/servicios" element={<AdminServicios />} />
       <Route path="/admin/horarios" element={<AdminHorarios2 />} />
-
       {/* Redirección para rutas no encontradas */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
