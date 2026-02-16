@@ -1,239 +1,195 @@
-# 💅 Sistema de Gestión de Turnos - Estética Profesional
+# 🗓️ TURNETE - Sistema de Gestión de Turnos SaaS
 
-Sistema completo de reserva de turnos online para negocios de estética
-## 📋 Características
+> Plataforma profesional de reserva de turnos para negocios de estética, barberías y centros de belleza.
 
-### Panel del Cliente
-- ✅ Selección de servicio (Microblading, Pestañas, etc.)
-- ✅ Elección de profesional
-- ✅ Calendario interactivo con días disponibles
-- ✅ Visualización de horarios libres
-- ✅ Reserva con nombre y WhatsApp
-- ✅ Confirmación inmediata
-
-### Panel de Administración
-- ✅ Agenda semanal completa
-- ✅ Vista por día con todos los turnos
-- ✅ Confirmación/Cancelación de turnos
-- ✅ Configuración de horarios de atención
-- ✅ Gestión de duración de servicios
-- ✅ Validación anti-superposición
-
-## 🛠️ Tecnologías
-
-### Frontend
-- React 18
-- Tailwind CSS
-- React Router DOM
-- Axios
-- Date-fns
-- Vite
-
-### Backend
-- Node.js
-- Express
-- SQLite3
-- CORS
-- Body-parser
-
-## 📁 Estructura del Proyecto
-
-```
-turnos-estetica/
-├── backend/
-│   ├── database.js          # Configuración de SQLite
-│   ├── server.js            # Servidor Express y API REST
-│   ├── package.json
-│   ├── .env
-│   └── turnos.db           # Base de datos (se crea automáticamente)
-│
-└── frontend/
-    ├── src/
-    │   ├── components/
-    │   │   ├── Calendar.jsx           # Selector de calendario
-    │   │   └── TimeSlotSelector.jsx   # Selector de horarios
-    │   ├── pages/
-    │   │   ├── ClienteReserva.jsx     # Vista del cliente
-    │   │   └── AdminPanel.jsx         # Panel administrativo
-    │   ├── services/
-    │   │   └── api.js                 # Cliente API
-    │   ├── utils/
-    │   │   └── dateUtils.js           # Utilidades de fecha
-    │   ├── App.jsx
-    │   ├── main.jsx
-    │   └── index.css
-    ├── index.html
-    ├── package.json
-    ├── vite.config.js
-    ├── tailwind.config.js
-    └── postcss.config.js
-```
-
-## 🚀 Instalación y Ejecución
-
-### Prerrequisitos
-- Node.js 16+ 
-- npm o yarn
-
-### 1. Instalar Backend
-
-```bash
-# Navegar a la carpeta backend
-cd backend
-
-# Instalar dependencias
-npm install
-
-# Iniciar el servidor
-npm start
-```
-
-El backend estará corriendo en `http://localhost:5000`
-
-### 2. Instalar Frontend
-
-```bash
-# En otra terminal, navegar a la carpeta frontend
-cd frontend
-
-# Instalar dependencias
-npm install
-
-# Iniciar la aplicación
-npm run dev
-```
-
-El frontend estará disponible en `http://localhost:3000`
-
-## 📊 Base de Datos
-
-La aplicación usa SQLite y se inicializa automáticamente con:
-
-### Servicios predefinidos:
-- Microblading (120 min)
-- Pestañas pelo a pelo (90 min)
-- Lifting de pestañas (60 min)
-- Depilación facial (30 min)
-- Limpieza facial (60 min)
-
-### Profesionales predefinidos:
-- María González
-- Ana Rodríguez
-- Laura Martínez
-
-### Horarios predefinidos:
-- Lunes a Viernes: 9:00 - 18:00
-- Sábado: 10:00 - 14:00
-
-## 🔌 API Endpoints
-
-### Servicios
-- `GET /api/servicios` - Listar servicios
-- `POST /api/servicios` - Crear servicio
-- `PUT /api/servicios/:id` - Actualizar servicio
-
-### Profesionales
-- `GET /api/profesionales` - Listar profesionales
-- `POST /api/profesionales` - Crear profesional
-
-### Turnos
-- `GET /api/turnos` - Listar turnos (con filtros)
-- `POST /api/turnos` - Crear turno
-- `POST /api/turnos/verificar-disponibilidad` - Verificar disponibilidad
-- `PUT /api/turnos/:id/estado` - Actualizar estado
-- `DELETE /api/turnos/:id` - Eliminar turno
-
-### Configuración
-- `GET /api/configuracion` - Obtener horarios
-- `POST /api/configuracion` - Crear/Actualizar horario
-- `PUT /api/configuracion/:id` - Modificar horario
-
-## 🎨 Personalización
-
-### Colores (Tailwind)
-Edita `frontend/tailwind.config.js` para cambiar el esquema de colores:
-
-```javascript
-colors: {
-  primary: {
-    // Personaliza aquí
-  }
-}
-```
-
-### Datos Iniciales
-Modifica `backend/database.js` para cambiar servicios, profesionales y horarios iniciales.
-
-## 🔐 Seguridad
-
-**IMPORTANTE**: Esta es una versión de desarrollo. Para producción, implementa:
-- Autenticación para el panel admin
-- HTTPS
-- Variables de entorno seguras
-- Rate limiting
-- Validación de inputs
-- CSRF protection
-
-## 📱 Responsive Design
-
-La aplicación está optimizada para:
-- ✅ Móviles (320px+)
-- ✅ Tablets (768px+)
-- ✅ Desktop (1024px+)
-
-## 🐛 Solución de Problemas
-
-### El backend no inicia
-```bash
-# Verifica que el puerto 5000 esté libre
-lsof -i :5000
-
-# Si está ocupado, cambia el puerto en .env
-PORT=5001
-```
-
-### Error de CORS
-Verifica que el frontend esté configurado en `vite.config.js` para hacer proxy al backend.
-
-### La base de datos no se crea
-Asegúrate de tener permisos de escritura en la carpeta `backend/`.
-
-## 📈 Próximas Mejoras
-
-- [ ] Notificaciones por email/SMS
-- [ ] Recordatorios automáticos
-- [ ] Sistema de pago online
-- [ ] Historial de clientes
-- [ ] Reportes y estadísticas
-- [ ] Integración con Google Calendar
-- [ ] App móvil nativa
-
-## 👨‍💻 Desarrollo
-
-```bash
-# Backend en modo desarrollo (con nodemon)
-cd backend
-npm run dev
-
-# Frontend en modo desarrollo
-cd frontend
-npm run dev
-```
-
-## 🏗️ Build para Producción
-
-```bash
-# Frontend
-cd frontend
-npm run build
-
-# Los archivos estarán en frontend/dist/
-```
-
-## 📄 Licencia
-
-Este proyecto es de código abierto y está disponible bajo la licencia MIT.
+![Status](https://img.shields.io/badge/status-en%20desarrollo-yellow)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![License](https://img.shields.io/badge/license-privado-red)
 
 ---
 
-**Desarrollado por Kairos **
+## 🎯 Descripción
+
+TURNETE es una solución SaaS multi-tenant diseñada para digitalizar y optimizar la gestión de turnos en negocios de estética y belleza, ofreciendo una experiencia sin fricción tanto para los clientes como para los administradores.
+
+---
+
+## ✨ Características Destacadas
+
+### 👥 Experiencia del Cliente
+- ✅ **Reserva simplificada:** Sin registro, solo nombre y WhatsApp
+- ✅ **Selección visual:** Servicios y profesionales con interfaz intuitiva
+- ✅ **Disponibilidad en tiempo real:** Calendario actualizado al instante
+- ✅ **Confirmación instantánea:** Feedback inmediato de la reserva
+- ✅ **Recordatorios automáticos:** Notificaciones por WhatsApp
+
+### 💼 Panel de Administración
+- ✅ **Dashboard completo:** Estadísticas y métricas del negocio
+- ✅ **Gestión de equipo:** Profesionales con identificación visual por colores
+- ✅ **Catálogo de servicios:** Personalización de tratamientos y precios
+- ✅ **Horarios flexibles:** Configuración de mañana/tarde con almuerzo
+- ✅ **Control total:** Sobreturnos, bloqueos y agenda semanal
+- ✅ **Integración:** Google Calendar para sincronización
+
+### 🏢 Arquitectura SaaS
+- ✅ **Multi-tenant:** Un sistema, múltiples negocios
+- ✅ **Aislamiento de datos:** Seguridad garantizada por negocio
+- ✅ **URLs personalizadas:** Cada negocio con su propio link
+- ✅ **Escalable:** Preparado para cientos de clientes simultáneos
+
+---
+
+## 🛠️ Stack Tecnológico
+
+### Frontend
+- React 18 + Vite
+- Tailwind CSS
+- React Router
+
+### Backend
+- Node.js + Express
+- PostgreSQL
+- Google Calendar API
+
+### Deployment
+- Preparado para Railway, Render o AWS
+- Docker-ready
+
+---
+
+## 🎨 Interfaz
+
+### Diseño Profesional
+- **Mobile-first:** Responsivo en todos los dispositivos
+- **Paleta de colores:** Identificación visual por profesional
+- **Estados claros:** Libre, ocupado, sobreturno, bloqueado
+- **Animaciones fluidas:** Experiencia de usuario premium
+
+### UX Optimizada
+- Proceso de reserva en 4 pasos simples
+- Feedback visual en cada acción
+- Sin fricción ni pasos innecesarios
+
+---
+
+## 📊 Funcionalidades Clave
+
+### Sistema de Horarios Avanzado
+- Configuración de horarios cortados (mañana/tarde)
+- Sobreturnos para horarios excepcionales
+- Bloqueos granulares por hora específica
+- Prevención automática de doble reserva
+
+### Gestión de Clientes
+- Base de datos con WhatsApp como identificador único
+- Historial completo de turnos
+- Sin fricción en el proceso de datos personales
+
+### Reportes y Estadísticas
+- Dashboard con métricas en tiempo real
+- Actividad reciente
+- Turnos pendientes y confirmados
+
+---
+
+## 🚀 Casos de Uso
+
+### Ideal para:
+- 💅 Salones de belleza
+- ✂️ Barberías
+- 💆 Centros de estética
+- 💇 Peluquerías
+- 🧖 Spas
+
+---
+
+## 🏗️ Arquitectura
+
+Sistema desarrollado con arquitectura multi-tenant moderna, permitiendo:
+- Escalabilidad horizontal
+- Aislamiento total de datos entre negocios
+- Performance optimizado con índices de base de datos
+- Seguridad por capas con middleware especializado
+
+---
+
+## 📈 Roadmap
+
+### ✅ Versión 2.0 (Actual)
+- [x] Sistema multi-tenant funcional
+- [x] Panel de administración completo
+- [x] Sistema de reservas optimizado
+- [x] Horarios flexibles y sobreturnos
+- [x] Integración con Google Calendar
+
+### 🚧 Versión 2.1 (En desarrollo)
+- [ ] URLs públicas personalizadas por negocio
+- [ ] Sistema de autenticación robusto
+- [ ] Dashboard con gráficos avanzados
+
+### 📋 Versión 3.0 (Planificado)
+- [ ] Onboarding automático de nuevos negocios
+- [ ] Sistema de pagos integrado
+- [ ] App móvil nativa
+- [ ] Notificaciones push
+- [ ] Multi-idioma
+
+---
+
+## 🎯 Modelo de Negocio
+
+TURNETE está diseñado para comercialización SaaS con modelo de suscripción:
+
+### Planes Proyectados
+- **Free:** Funcionalidad básica para negocios pequeños
+- **Premium:** Features avanzadas y soporte prioritario
+- **Enterprise:** Personalización completa y SLA garantizado
+
+---
+
+## 👥 Equipo de Desarrollo
+
+**Desarrollador Principal:** Emma  
+**Negocio Piloto:** Salon Paula (Buenos Aires, Argentina)
+
+---
+
+## 📄 Licencia y Uso
+
+**© 2026 - Proyecto Privado**
+
+Este es un proyecto comercial en desarrollo activo. El código fuente se encuentra en repositorio privado para protección de propiedad intelectual.
+
+**Uso no autorizado prohibido.**
+
+---
+
+## 📞 Contacto
+
+### Para consultas sobre:
+- 🎥 Demos personalizadas
+- 💼 Licenciamiento comercial
+- 🤝 Colaboraciones
+- 💬 Implementación personalizada
+
+**Contacto:** [Tu email o LinkedIn]
+
+---
+
+## 📸 Screenshots
+
+_Próximamente: Capturas de pantalla del sistema en producción_
+
+---
+
+## 🔒 Nota de Privacidad
+
+Este repositorio contiene el historial de desarrollo del proyecto. Por razones de seguridad y protección de propiedad intelectual, los detalles técnicos específicos, scripts de base de datos y configuraciones sensibles no están incluidos en este README público.
+
+**Para acceso completo a documentación técnica, contactar al equipo de desarrollo.**
+
+---
+
+**Última actualización:** Febrero 2026  
+**Versión:** 2.0.0  
+**Estado:** 🚧 En desarrollo activo
