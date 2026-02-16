@@ -5,53 +5,102 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { ClienteProvider, useCliente } from "./contexts/ClienteContext";
+import { ClienteProvider } from "./contexts/ClienteContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+
+// Páginas públicas
+import Home from "./pages/Home";
 import LoginDNI from "./pages/LoginDNI";
 import ClienteReserva from "./pages/ClienteReserva";
-import Home from "./pages/Home";
 import HistorialCliente from "./pages/HistorialCliente";
+
+// Páginas admin
+import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminClientes from "./pages/AdminClientes";
 import AdminAgenda from "./pages/AdminAgenda";
+import AdminAgendaSemanal from "./pages/AdminAgendaSemanal";
 import AdminServicios from "./pages/AdminServicios";
 import AdminProfesionales from "./pages/AdminProfesionales";
 import AdminHorarios2 from "./pages/AdminHorarios2";
-
-// Componente para proteger rutas que requieren autenticación
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useCliente();
-
-  if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
-  return children;
-};
 
 function AppRoutes() {
   return (
     <Routes>
       {/* Ruta pública - Home */}
-      <Route path="/" element={<ClienteReserva />} />
+      <Route path="/" element={<Home />} />
+
+      {/* Ruta pública - Login DNI (legacy) */}
+      <Route path="/login" element={<LoginDNI />} />
 
       {/* Ruta pública - Historial */}
       <Route path="/historial" element={<HistorialCliente />} />
-      {/* Ruta protegida - Reserva */}
+
+      {/* Ruta pública - Reserva directa */}
+      <Route path="/reservar" element={<ClienteReserva />} />
+
+      {/* Ruta de login admin (NO protegida) */}
+      <Route path="/admin/login" element={<AdminLogin />} />
+
+      {/* Rutas protegidas - Admin */}
       <Route
-        path="/reservar"
+        path="/admin"
         element={
           <ProtectedRoute>
-            <ClienteReserva />
+            <AdminDashboard />
           </ProtectedRoute>
         }
       />
-      {/* Rutas admin */}
-      <Route path="/admin" element={<AdminDashboard />} />
-      <Route path="/admin/clientes" element={<AdminClientes />} />
-      <Route path="/admin/profesionales" element={<AdminProfesionales />} />
-      <Route path="/admin/agenda" element={<AdminAgenda />} />
-      <Route path="/admin/servicios" element={<AdminServicios />} />
-      <Route path="/admin/horarios" element={<AdminHorarios2 />} />
+      <Route
+        path="/admin/clientes"
+        element={
+          <ProtectedRoute>
+            <AdminClientes />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/profesionales"
+        element={
+          <ProtectedRoute>
+            <AdminProfesionales />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/agenda"
+        element={
+          <ProtectedRoute>
+            <AdminAgenda />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/agenda-semanal"
+        element={
+          <ProtectedRoute>
+            <AdminAgendaSemanal />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/servicios"
+        element={
+          <ProtectedRoute>
+            <AdminServicios />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/horarios"
+        element={
+          <ProtectedRoute>
+            <AdminHorarios2 />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Redirección para rutas no encontradas */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -61,11 +110,13 @@ function AppRoutes() {
 function App() {
   return (
     <Router>
-      <ClienteProvider>
-        <div className="min-h-screen">
-          <AppRoutes />
-        </div>
-      </ClienteProvider>
+      <AuthProvider>
+        <ClienteProvider>
+          <div className="min-h-screen">
+            <AppRoutes />
+          </div>
+        </ClienteProvider>
+      </AuthProvider>
     </Router>
   );
 }
