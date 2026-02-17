@@ -26,6 +26,7 @@ const ClienteReserva = () => {
     fecha: null,
     horario: null,
     nombre: "",
+    apellido: "", // ← AGREGAR
     whatsapp: "",
     email: "",
     notas: "",
@@ -142,8 +143,10 @@ const ClienteReserva = () => {
         profesional_id: formData.profesional.id,
         cliente_id: cliente?.id || null,
         cliente_nombre:
-          formData.nombre || `${cliente?.nombre} ${cliente?.apellido}`,
-        cliente_whatsapp: formData.whatsapp || cliente?.telefono,
+          formData.nombre && formData.apellido
+            ? `${formData.nombre} ${formData.apellido}`
+            : `${cliente?.nombre} ${cliente?.apellido}`,
+        cliente_whatsapp: formData.whatsapp || cliente?.whatsapp,
         fecha: formatDate(formData.fecha),
         hora_inicio: formData.horario.inicio,
         hora_fin: formData.horario.fin,
@@ -167,6 +170,7 @@ const ClienteReserva = () => {
       fecha: null,
       horario: null,
       nombre: "",
+      apellido: "", // ← AGREGAR
       whatsapp: "",
       email: "",
       notas: "",
@@ -681,7 +685,7 @@ const ClienteReserva = () => {
                   Volver
                 </button>
 
-                {/* Info del cliente logueado */}
+                {/* Info del cliente logueado - SI EXISTE */}
                 {cliente && (
                   <div className="bg-gradient-to-r from-brand-50 to-accent-50 rounded-xl p-4 mb-6 border-2 border-brand-200">
                     <div className="flex items-center gap-3">
@@ -694,7 +698,7 @@ const ClienteReserva = () => {
                           {cliente.nombre} {cliente.apellido}
                         </p>
                         <p className="text-sm text-dark-600">
-                          DNI: {cliente.dni}
+                          WhatsApp: {cliente.whatsapp}
                         </p>
                       </div>
                     </div>
@@ -709,39 +713,60 @@ const ClienteReserva = () => {
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Solo mostrar campos si NO hay cliente logueado */}
                   {!cliente && (
-                    <div>
-                      <label className="label">Nombre Completo *</label>
-                      <input
-                        type="text"
-                        value={formData.nombre}
-                        onChange={(e) =>
-                          setFormData({ ...formData, nombre: e.target.value })
-                        }
-                        className="input"
-                        placeholder="María González"
-                        required
-                      />
-                    </div>
-                  )}
+                    <>
+                      <div>
+                        <label className="label">Nombre *</label>
+                        <input
+                          type="text"
+                          value={formData.nombre}
+                          onChange={(e) =>
+                            setFormData({ ...formData, nombre: e.target.value })
+                          }
+                          className="input"
+                          placeholder="María"
+                          required
+                        />
+                      </div>
 
-                  {!cliente && (
-                    <div>
-                      <label className="label">WhatsApp *</label>
-                      <input
-                        type="tel"
-                        value={formData.whatsapp}
-                        onChange={(e) =>
-                          setFormData({ ...formData, whatsapp: e.target.value })
-                        }
-                        className="input"
-                        placeholder="+54 9 11 1234-5678"
-                        required
-                      />
-                      <p className="text-sm text-dark-500 mt-2">
-                        Te enviaremos un recordatorio 24 horas antes
-                      </p>
-                    </div>
+                      <div>
+                        <label className="label">Apellido *</label>
+                        <input
+                          type="text"
+                          value={formData.apellido}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              apellido: e.target.value,
+                            })
+                          }
+                          className="input"
+                          placeholder="González"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="label">WhatsApp *</label>
+                        <input
+                          type="tel"
+                          value={formData.whatsapp}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              whatsapp: e.target.value,
+                            })
+                          }
+                          className="input"
+                          placeholder="+54 9 11 1234-5678"
+                          required
+                        />
+                        <p className="text-sm text-dark-500 mt-2">
+                          Te enviaremos un recordatorio 24 horas antes
+                        </p>
+                      </div>
+                    </>
                   )}
 
                   <div>

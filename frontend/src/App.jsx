@@ -10,14 +10,14 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // Páginas públicas
-import Home from "./pages/Home";
-import LoginDNI from "./pages/LoginDNI";
+import LandingPage from "./pages/LandingPage";
 import ClienteReserva from "./pages/ClienteReserva";
 import HistorialCliente from "./pages/HistorialCliente";
 
 // Páginas admin
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminConfiguracion from "./pages/AdminConfiguracion";
 import AdminClientes from "./pages/AdminClientes";
 import AdminAgenda from "./pages/AdminAgenda";
 import AdminAgendaSemanal from "./pages/AdminAgendaSemanal";
@@ -28,27 +28,30 @@ import AdminHorarios2 from "./pages/AdminHorarios2";
 function AppRoutes() {
   return (
     <Routes>
-      {/* Ruta pública - Home */}
-      <Route path="/" element={<Home />} />
+      {/* 1. RUTA RAÍZ: Ahora muestra la Landing Page */}
+      <Route path="/" element={<LandingPage />} />
 
-      {/* Ruta pública - Login DNI (legacy) */}
-      <Route path="/login" element={<LoginDNI />} />
-
-      {/* Ruta pública - Historial */}
+      {/* 2. RUTAS PÚBLICAS CLIENTES */}
+      <Route path="/reservar" element={<ClienteReserva />} />
       <Route path="/historial" element={<HistorialCliente />} />
 
-      {/* Ruta pública - Reserva directa */}
-      <Route path="/reservar" element={<ClienteReserva />} />
-
-      {/* Ruta de login admin (NO protegida) */}
+      {/* 3. LOGIN ADMIN (Sin protección) */}
       <Route path="/admin/login" element={<AdminLogin />} />
 
-      {/* Rutas protegidas - Admin */}
+      {/* 4. RUTAS PROTEGIDAS - ADMIN */}
       <Route
         path="/admin"
         element={
           <ProtectedRoute>
             <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/configuracion"
+        element={
+          <ProtectedRoute>
+            <AdminConfiguracion />
           </ProtectedRoute>
         }
       />
@@ -101,7 +104,7 @@ function AppRoutes() {
         }
       />
 
-      {/* Redirección para rutas no encontradas */}
+      {/* 5. REDIRECCIÓN GLOBAL: Si la ruta no existe, vuelve al inicio */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

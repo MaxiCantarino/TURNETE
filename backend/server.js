@@ -5,6 +5,36 @@ const bodyParser = require("body-parser");
 const { google } = require("googleapis");
 const { pool } = require("./database");
 const { requireBusiness } = require("./middleware/businessMiddleware");
+const multer = require("multer");
+const path = require("path");
+
+// Configurar almacenamiento de imágenes
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "public/uploads/");
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${Date.now()}-${file.originalname}`;
+    cb(null, uniqueName);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB máximo
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const extname = allowedTypes.test(
+      path.extname(file.originalname).toLowerCase(),
+    );
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    }
+    cb(new Error("Solo se permiten imágenes (jpeg, jpg, png, webp)"));
+  },
+});
 
 const app = express();
 const PORT = 5000;
@@ -12,6 +42,7 @@ const PORT = 5000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+app.use("/uploads", express.static("public/uploads"));
 
 // Configuración de Google OAuth2
 const oauth2Client = new google.auth.OAuth2(
@@ -19,6 +50,29 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_SECRET,
   process.env.GOOGLE_REDIRECT_URI,
 );
+
+// ========== CONFIGURACIÓN DEL NEGOCIO (PÚBLICO) ==========
+
+app.get("/api/configuracion/negocio", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM tenant_paula.configuracion_negocio WHERE business_id = 1",
+    );
+
+    if (result.rows.length > 0) {
+      res.json(result.rows[0]);
+    } else {
+      res.json({
+        nombre_negocio: "Turnete",
+        slogan: "Sistema de Gestión de Turnos",
+        color_primario: "#e91e63",
+      });
+    }
+  } catch (error) {
+    console.error("Error obteniendo configuración:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // ========== RUTAS DE PROFESIONALES ==========
 
@@ -52,7 +106,6 @@ app.get("/api/servicios", requireBusiness, async (req, res) => {
 
 // ========== RUTAS DE CONFIGURACIÓN ==========
 
-// Obtener horarios de un profesional específico
 app.get(
   "/api/profesionales/:id/horarios",
   requireBusiness,
@@ -73,7 +126,6 @@ app.get(
   },
 );
 
-// Obtener TODOS los horarios de un profesional (para admin - incluye inactivos)
 app.get(
   "/api/profesionales/:id/horarios/all",
   requireBusiness,
@@ -103,7 +155,6 @@ app.get(
   },
 );
 
-// Obtener configuración (para compatibilidad - deprecado)
 app.get("/api/configuracion", requireBusiness, async (req, res) => {
   try {
     const result = await pool.query(
@@ -119,7 +170,6 @@ app.get("/api/configuracion", requireBusiness, async (req, res) => {
   }
 });
 
-// Actualizar horarios de un profesional
 app.put(
   "/api/profesionales/:id/horarios/:dia",
   requireBusiness,
@@ -142,7 +192,6 @@ app.put(
   },
 );
 
-// Crear/Actualizar horario (upsert) - CON HORARIOS CORTADOS
 app.post(
   "/api/profesionales/:id/horarios",
   requireBusiness,
@@ -190,7 +239,6 @@ app.post(
 
 // ========== RUTAS DE TURNOS ==========
 
-// Obtener turnos existentes (para evitar solapamientos)
 app.get("/api/turnos", requireBusiness, async (req, res) => {
   const { fecha_desde, fecha_hasta, profesional_id } = req.query;
 
@@ -207,7 +255,6 @@ app.get("/api/turnos", requireBusiness, async (req, res) => {
   }
 });
 
-// Crear un nuevo turno y sincronizar con Google
 app.post("/api/turnos", requireBusiness, async (req, res) => {
   const {
     servicio_id,
@@ -226,11 +273,9 @@ app.post("/api/turnos", requireBusiness, async (req, res) => {
   const client = await pool.connect();
 
   try {
-    // Iniciar transacción
     await client.query("BEGIN");
     await client.query("SET search_path TO tenant_paula, public");
 
-    // Verificar disponibilidad (evitar doble reserva)
     const checkResult = await client.query(
       `SELECT id FROM turnos 
        WHERE business_id = $1 AND profesional_id = $2 AND fecha = $3 AND hora_inicio = $4`,
@@ -242,7 +287,6 @@ app.post("/api/turnos", requireBusiness, async (req, res) => {
       return res.status(409).json({ error: "Este horario ya está reservado" });
     }
 
-    // Insertar turno
     const insertResult = await client.query(
       `INSERT INTO turnos (
         business_id, servicio_id, profesional_id, cliente_id, cliente_nombre, cliente_whatsapp, 
@@ -267,10 +311,8 @@ app.post("/api/turnos", requireBusiness, async (req, res) => {
 
     const nuevoId = insertResult.rows[0].id;
 
-    // Commit transacción
     await client.query("COMMIT");
 
-    // Buscar si el profesional tiene Google vinculado (sin transacción)
     const tokenResult = await pool.query(
       "SELECT * FROM tenant_paula.google_tokens WHERE business_id = $1 AND profesional_id = $2",
       [req.businessId, profesional_id],
@@ -313,7 +355,6 @@ app.post("/api/turnos", requireBusiness, async (req, res) => {
   } catch (error) {
     await client.query("ROLLBACK");
 
-    // Manejar error de constraint UNIQUE (23505)
     if (error.code === "23505") {
       return res.status(409).json({ error: "Este horario ya está reservado" });
     }
@@ -325,7 +366,6 @@ app.post("/api/turnos", requireBusiness, async (req, res) => {
   }
 });
 
-// Actualizar estado de turno
 app.put("/api/turnos/:id/estado", requireBusiness, async (req, res) => {
   const { estado } = req.body;
 
@@ -343,7 +383,6 @@ app.put("/api/turnos/:id/estado", requireBusiness, async (req, res) => {
   }
 });
 
-// Eliminar turno
 app.delete("/api/turnos/:id", requireBusiness, async (req, res) => {
   try {
     await pool.query(
@@ -359,7 +398,6 @@ app.delete("/api/turnos/:id", requireBusiness, async (req, res) => {
 
 // ========== RUTAS DE CLIENTES ==========
 
-// Buscar cliente por WhatsApp (nuevo identificador)
 app.get(
   "/api/clientes/whatsapp/:whatsapp",
   requireBusiness,
@@ -379,7 +417,6 @@ app.get(
   },
 );
 
-// Buscar cliente por DNI (compatibilidad - deprecado)
 app.get("/api/clientes/dni/:dni", requireBusiness, async (req, res) => {
   const { dni } = req.params;
 
@@ -395,7 +432,6 @@ app.get("/api/clientes/dni/:dni", requireBusiness, async (req, res) => {
   }
 });
 
-// Crear nuevo cliente
 app.post("/api/clientes", requireBusiness, async (req, res) => {
   const { whatsapp, nombre, apellido, edad, telefono, email } = req.body;
 
@@ -413,7 +449,6 @@ app.post("/api/clientes", requireBusiness, async (req, res) => {
   }
 });
 
-// Obtener historial de turnos de un cliente
 app.get("/api/clientes/:id/turnos", requireBusiness, async (req, res) => {
   const { id } = req.params;
 
@@ -435,7 +470,6 @@ app.get("/api/clientes/:id/turnos", requireBusiness, async (req, res) => {
   }
 });
 
-// Actualizar saldo de deuda de cliente
 app.put("/api/clientes/:id/deuda", requireBusiness, async (req, res) => {
   const { id } = req.params;
   const { saldo_deuda } = req.body;
@@ -452,7 +486,6 @@ app.put("/api/clientes/:id/deuda", requireBusiness, async (req, res) => {
   }
 });
 
-// Obtener todos los clientes (para admin)
 app.get("/api/clientes", requireBusiness, async (req, res) => {
   try {
     const result = await pool.query(
@@ -468,7 +501,6 @@ app.get("/api/clientes", requireBusiness, async (req, res) => {
 
 // ========== RUTAS ADMIN ==========
 
-// Obtener todos los turnos con detalles (para admin)
 app.get("/api/admin/turnos", requireBusiness, async (req, res) => {
   const { fecha, estado, profesional_id } = req.query;
 
@@ -516,7 +548,6 @@ app.get("/api/admin/turnos", requireBusiness, async (req, res) => {
   }
 });
 
-// Obtener estadísticas del dashboard
 app.get("/api/admin/estadisticas", requireBusiness, async (req, res) => {
   const hoy = new Date().toISOString().split("T")[0];
 
@@ -555,7 +586,6 @@ app.get("/api/admin/estadisticas", requireBusiness, async (req, res) => {
   }
 });
 
-// Actividad reciente (últimos 10 turnos)
 app.get("/api/admin/actividad-reciente", requireBusiness, async (req, res) => {
   try {
     const result = await pool.query(
@@ -579,7 +609,6 @@ app.get("/api/admin/actividad-reciente", requireBusiness, async (req, res) => {
   }
 });
 
-// Obtener turnos para recordatorios (mañana)
 app.get("/api/admin/recordatorios", requireBusiness, async (req, res) => {
   const mañana = new Date();
   mañana.setDate(mañana.getDate() + 1);
@@ -606,7 +635,6 @@ app.get("/api/admin/recordatorios", requireBusiness, async (req, res) => {
   }
 });
 
-// Actualizar servicio
 app.put("/api/admin/servicios/:id", requireBusiness, async (req, res) => {
   const { id } = req.params;
   const { nombre, duracion, precio, categoria, descripcion } = req.body;
@@ -625,7 +653,6 @@ app.put("/api/admin/servicios/:id", requireBusiness, async (req, res) => {
   }
 });
 
-// Crear servicio
 app.post("/api/admin/servicios", requireBusiness, async (req, res) => {
   const { nombre, duracion, precio, categoria, descripcion } = req.body;
 
@@ -643,7 +670,6 @@ app.post("/api/admin/servicios", requireBusiness, async (req, res) => {
   }
 });
 
-// Eliminar servicio
 app.delete("/api/admin/servicios/:id", requireBusiness, async (req, res) => {
   try {
     await pool.query(
@@ -659,7 +685,6 @@ app.delete("/api/admin/servicios/:id", requireBusiness, async (req, res) => {
 
 // ========== RUTAS DE PROFESIONAL-SERVICIOS ==========
 
-// Obtener servicios asignados a un profesional
 app.get(
   "/api/profesionales/:id/servicios",
   requireBusiness,
@@ -682,7 +707,6 @@ app.get(
   },
 );
 
-// Asignar servicio a profesional
 app.post(
   "/api/profesionales/:id/servicios",
   requireBusiness,
@@ -708,7 +732,6 @@ app.post(
   },
 );
 
-// Desasignar servicio de profesional
 app.delete(
   "/api/profesionales/:id/servicios/:servicio_id",
   requireBusiness,
@@ -729,7 +752,6 @@ app.delete(
   },
 );
 
-// Obtener profesionales que ofrecen un servicio específico
 app.get(
   "/api/servicios/:id/profesionales",
   requireBusiness,
@@ -754,7 +776,6 @@ app.get(
 
 // ========== RUTAS DE SOBRETURNOS ==========
 
-// Obtener sobreturnos (por fecha y/o profesional)
 app.get("/api/sobreturnos", requireBusiness, async (req, res) => {
   const { fecha, profesional_id } = req.query;
 
@@ -785,7 +806,6 @@ app.get("/api/sobreturnos", requireBusiness, async (req, res) => {
   }
 });
 
-// Crear nuevo sobreturno
 app.post("/api/sobreturnos", requireBusiness, async (req, res) => {
   const { profesional_id, fecha, hora_inicio, hora_fin, motivo } = req.body;
 
@@ -813,7 +833,6 @@ app.post("/api/sobreturnos", requireBusiness, async (req, res) => {
   }
 });
 
-// Eliminar sobreturno
 app.delete("/api/sobreturnos/:id", requireBusiness, async (req, res) => {
   try {
     await pool.query(
@@ -829,7 +848,6 @@ app.delete("/api/sobreturnos/:id", requireBusiness, async (req, res) => {
 
 // ========== RUTAS DE BLOQUES BLOQUEADOS ==========
 
-// Obtener bloques bloqueados (por rango de fechas y/o profesional)
 app.get("/api/bloques-bloqueados", requireBusiness, async (req, res) => {
   const { fecha_desde, fecha_hasta, profesional_id } = req.query;
 
@@ -861,7 +879,6 @@ app.get("/api/bloques-bloqueados", requireBusiness, async (req, res) => {
   }
 });
 
-// Crear nuevo bloque bloqueado
 app.post("/api/bloques-bloqueados", requireBusiness, async (req, res) => {
   const { profesional_id, fecha, hora_inicio, hora_fin, motivo } = req.body;
 
@@ -893,7 +910,6 @@ app.post("/api/bloques-bloqueados", requireBusiness, async (req, res) => {
   }
 });
 
-// Eliminar bloque bloqueado
 app.delete("/api/bloques-bloqueados/:id", requireBusiness, async (req, res) => {
   try {
     await pool.query(
@@ -907,7 +923,7 @@ app.delete("/api/bloques-bloqueados/:id", requireBusiness, async (req, res) => {
   }
 });
 
-// --- RUTAS DE AUTENTICACIÓN GOOGLE ---
+// ========== RUTAS DE AUTENTICACIÓN GOOGLE ==========
 
 app.get("/api/auth/google/:id", (req, res) => {
   const url = oauth2Client.generateAuthUrl({
@@ -924,7 +940,6 @@ app.get("/api/auth/google/callback", async (req, res) => {
   try {
     const { tokens } = await oauth2Client.getToken(code);
 
-    // Hardcode business_id = 1 por ahora
     const businessId = 1;
 
     await pool.query(
@@ -948,8 +963,91 @@ app.get("/api/auth/google/callback", async (req, res) => {
     res.redirect("http://localhost:3000/admin?google=error");
   }
 });
+app.put("/api/admin/configuracion", requireBusiness, async (req, res) => {
+  const {
+    nombre_negocio,
+    slogan,
+    telefono,
+    instagram,
+    direccion,
+    color_primario,
+    banner_position,
+  } = req.body;
 
-// --- INICIO DEL SERVIDOR ---
+  try {
+    await pool.query(
+      `UPDATE tenant_paula.configuracion_negocio 
+       SET nombre_negocio = $1, slogan = $2, telefono = $3, instagram = $4, direccion = $5, color_primario = $6, banner_position = $7
+       WHERE business_id = $8`,
+      [
+        nombre_negocio,
+        slogan,
+        telefono,
+        instagram,
+        direccion,
+        color_primario,
+        banner_position,
+        req.businessId,
+      ],
+    );
+    res.json({ message: "Configuración actualizada" });
+  } catch (error) {
+    console.error("Error actualizando configuración:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+// Subir banner
+app.post(
+  "/api/admin/configuracion/banner",
+  requireBusiness,
+  upload.single("banner"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No se recibió ninguna imagen" });
+      }
+
+      const bannerUrl = `/uploads/${req.file.filename}`;
+
+      await pool.query(
+        "UPDATE tenant_paula.configuracion_negocio SET banner_url = $1 WHERE business_id = $2",
+        [bannerUrl, req.businessId],
+      );
+
+      res.json({ banner_url: bannerUrl });
+    } catch (error) {
+      console.error("Error subiendo banner:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+// Subir logo
+app.post(
+  "/api/admin/configuracion/logo",
+  requireBusiness,
+  upload.single("logo"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No se recibió ninguna imagen" });
+      }
+
+      const logoUrl = `/uploads/${req.file.filename}`;
+
+      await pool.query(
+        "UPDATE tenant_paula.configuracion_negocio SET logo_url = $1 WHERE business_id = $2",
+        [logoUrl, req.businessId],
+      );
+
+      res.json({ logo_url: logoUrl });
+    } catch (error) {
+      console.error("Error subiendo logo:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+// ========== INICIO DEL SERVIDOR ==========
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
