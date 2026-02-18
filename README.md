@@ -181,7 +181,7 @@ Este es un proyecto comercial en desarrollo activo. El código fuente se encuent
 
 ---
 
-## 📞 Contacto
+## 📞 Contacto 3512607315
 
 ### Para consultas sobre:
 
@@ -190,7 +190,7 @@ Este es un proyecto comercial en desarrollo activo. El código fuente se encuent
 - 🤝 Colaboraciones
 - 💬 Implementación personalizada
 
-**Contacto:** [Tu email o LinkedIn]
+**Contacto:** [cantarinoe@hotmail.com]
 
 ---
 
