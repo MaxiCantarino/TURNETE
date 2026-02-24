@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useState, useContext, useEffect } from "react";
+import axios from "axios";
 
 const AuthContext = createContext();
 
@@ -14,36 +15,45 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Verificar si hay sesión guardada al cargar
   useEffect(() => {
-    const savedUser = localStorage.getItem("turnete_admin");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    checkAuth();
   }, []);
 
-  const login = (email, password) => {
-    // TODO: Más adelante esto será con API y BD
-    // Por ahora hardcodeamos usuario de prueba
-    if (email === "admin@salon.com" && password === "admin123") {
-      const userData = {
-        email: "admin@salon.com",
-        nombre: "Administrador",
-        role: "admin",
-        businessId: 1,
-      };
-      setUser(userData);
-      localStorage.setItem("turnete_admin", JSON.stringify(userData));
-      return { success: true };
-    } else {
-      return { success: false, error: "Credenciales incorrectas" };
+  const checkAuth = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await axios.get("http://localhost:5000/api/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUser(response.data.user);
+    } catch (error) {
+      console.error("Error verificando autenticación:", error);
+      localStorage.removeItem("token");
+    } finally {
+      setLoading(false);
     }
   };
 
+  const login = async (email, password) => {
+    const response = await axios.post("http://localhost:5000/api/auth/login", {
+      email,
+      password,
+    });
+
+    localStorage.setItem("token", response.data.token);
+    setUser(response.data.user);
+    return response.data.user;
+  };
+
   const logout = () => {
+    localStorage.removeItem("token");
     setUser(null);
-    localStorage.removeItem("turnete_admin");
+    window.location.href = "/admin/login";
   };
 
   const value = {

@@ -24,9 +24,7 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB máximo
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|webp/;
-    const extname = allowedTypes.test(
-      path.extname(file.originalname).toLowerCase(),
-    );
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
 
     if (mimetype && extname) {
@@ -55,9 +53,7 @@ const oauth2Client = new google.auth.OAuth2(
 
 app.get("/api/configuracion/negocio", async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT * FROM tenant_paula.configuracion_negocio WHERE business_id = 1",
-    );
+    const result = await pool.query("SELECT * FROM tenant_paula.configuracion_negocio WHERE business_id = 1");
 
     if (result.rows.length > 0) {
       res.json(result.rows[0]);
@@ -78,10 +74,9 @@ app.get("/api/configuracion/negocio", async (req, res) => {
 
 app.get("/api/profesionales", requireBusiness, async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT * FROM tenant_paula.profesionales WHERE business_id = $1",
-      [req.businessId],
-    );
+    const result = await pool.query("SELECT * FROM tenant_paula.profesionales WHERE business_id = $1", [
+      req.businessId,
+    ]);
     res.json(result.rows);
   } catch (error) {
     console.error("Error obteniendo profesionales:", error);
@@ -93,10 +88,7 @@ app.get("/api/profesionales", requireBusiness, async (req, res) => {
 
 app.get("/api/servicios", requireBusiness, async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT * FROM tenant_paula.servicios WHERE business_id = $1",
-      [req.businessId],
-    );
+    const result = await pool.query("SELECT * FROM tenant_paula.servicios WHERE business_id = $1", [req.businessId]);
     res.json(result.rows);
   } catch (error) {
     console.error("Error obteniendo servicios:", error);
@@ -106,35 +98,28 @@ app.get("/api/servicios", requireBusiness, async (req, res) => {
 
 // ========== RUTAS DE CONFIGURACIÓN ==========
 
-app.get(
-  "/api/profesionales/:id/horarios",
-  requireBusiness,
-  async (req, res) => {
-    const { id } = req.params;
+app.get("/api/profesionales/:id/horarios", requireBusiness, async (req, res) => {
+  const { id } = req.params;
 
-    try {
-      const result = await pool.query(
-        `SELECT * FROM tenant_paula.profesional_horarios 
+  try {
+    const result = await pool.query(
+      `SELECT * FROM tenant_paula.profesional_horarios 
        WHERE business_id = $1 AND profesional_id = $2 AND activo = true`,
-        [req.businessId, id],
-      );
-      res.json(result.rows);
-    } catch (error) {
-      console.error("Error obteniendo horarios:", error);
-      res.status(500).json({ error: error.message });
-    }
-  },
-);
+      [req.businessId, id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo horarios:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
-app.get(
-  "/api/profesionales/:id/horarios/all",
-  requireBusiness,
-  async (req, res) => {
-    const { id } = req.params;
+app.get("/api/profesionales/:id/horarios/all", requireBusiness, async (req, res) => {
+  const { id } = req.params;
 
-    try {
-      const result = await pool.query(
-        `SELECT * FROM tenant_paula.profesional_horarios 
+  try {
+    const result = await pool.query(
+      `SELECT * FROM tenant_paula.profesional_horarios 
        WHERE business_id = $1 AND profesional_id = $2 
        ORDER BY CASE dia_semana 
          WHEN 'Lunes' THEN 1 
@@ -145,15 +130,14 @@ app.get(
          WHEN 'Sábado' THEN 6 
          WHEN 'Domingo' THEN 7 
        END`,
-        [req.businessId, id],
-      );
-      res.json(result.rows);
-    } catch (error) {
-      console.error("Error obteniendo horarios:", error);
-      res.status(500).json({ error: error.message });
-    }
-  },
-);
+      [req.businessId, id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo horarios:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.get("/api/configuracion", requireBusiness, async (req, res) => {
   try {
@@ -170,45 +154,31 @@ app.get("/api/configuracion", requireBusiness, async (req, res) => {
   }
 });
 
-app.put(
-  "/api/profesionales/:id/horarios/:dia",
-  requireBusiness,
-  async (req, res) => {
-    const { id, dia } = req.params;
-    const { hora_inicio, hora_fin, activo } = req.body;
+app.put("/api/profesionales/:id/horarios/:dia", requireBusiness, async (req, res) => {
+  const { id, dia } = req.params;
+  const { hora_inicio, hora_fin, activo } = req.body;
 
-    try {
-      await pool.query(
-        `UPDATE tenant_paula.profesional_horarios 
+  try {
+    await pool.query(
+      `UPDATE tenant_paula.profesional_horarios 
        SET hora_inicio = $1, hora_fin = $2, activo = $3
        WHERE business_id = $4 AND profesional_id = $5 AND dia_semana = $6`,
-        [hora_inicio, hora_fin, activo ? true : false, req.businessId, id, dia],
-      );
-      res.json({ message: "Horario actualizado" });
-    } catch (error) {
-      console.error("Error actualizando horario:", error);
-      res.status(500).json({ error: error.message });
-    }
-  },
-);
+      [hora_inicio, hora_fin, activo ? true : false, req.businessId, id, dia],
+    );
+    res.json({ message: "Horario actualizado" });
+  } catch (error) {
+    console.error("Error actualizando horario:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
-app.post(
-  "/api/profesionales/:id/horarios",
-  requireBusiness,
-  async (req, res) => {
-    const { id } = req.params;
-    const {
-      dia_semana,
-      hora_inicio,
-      hora_fin,
-      hora_inicio_tarde,
-      hora_fin_tarde,
-      activo,
-    } = req.body;
+app.post("/api/profesionales/:id/horarios", requireBusiness, async (req, res) => {
+  const { id } = req.params;
+  const { dia_semana, hora_inicio, hora_fin, hora_inicio_tarde, hora_fin_tarde, activo } = req.body;
 
-    try {
-      await pool.query(
-        `INSERT INTO tenant_paula.profesional_horarios 
+  try {
+    await pool.query(
+      `INSERT INTO tenant_paula.profesional_horarios 
        (business_id, profesional_id, dia_semana, hora_inicio, hora_fin, hora_inicio_tarde, hora_fin_tarde, activo)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (profesional_id, dia_semana) 
@@ -218,24 +188,14 @@ app.post(
          hora_inicio_tarde = $6, 
          hora_fin_tarde = $7, 
          activo = $8`,
-        [
-          req.businessId,
-          id,
-          dia_semana,
-          hora_inicio,
-          hora_fin,
-          hora_inicio_tarde,
-          hora_fin_tarde,
-          activo ? true : false,
-        ],
-      );
-      res.json({ message: "Horario guardado" });
-    } catch (error) {
-      console.error("Error guardando horario:", error);
-      res.status(500).json({ error: error.message });
-    }
-  },
-);
+      [req.businessId, id, dia_semana, hora_inicio, hora_fin, hora_inicio_tarde, hora_fin_tarde, activo ? true : false],
+    );
+    res.json({ message: "Horario guardado" });
+  } catch (error) {
+    console.error("Error guardando horario:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // ========== RUTAS DE TURNOS ==========
 
@@ -344,10 +304,7 @@ app.post("/api/turnos", requireBusiness, async (req, res) => {
         });
         console.log(`✅ Turno ${nuevoId} sincronizado con Google Calendar.`);
       } catch (e) {
-        console.error(
-          "❌ Error al sincronizar con Google Calendar:",
-          e.message,
-        );
+        console.error("❌ Error al sincronizar con Google Calendar:", e.message);
       }
     }
 
@@ -385,10 +342,10 @@ app.put("/api/turnos/:id/estado", requireBusiness, async (req, res) => {
 
 app.delete("/api/turnos/:id", requireBusiness, async (req, res) => {
   try {
-    await pool.query(
-      "DELETE FROM tenant_paula.turnos WHERE business_id = $1 AND id = $2",
-      [req.businessId, req.params.id],
-    );
+    await pool.query("DELETE FROM tenant_paula.turnos WHERE business_id = $1 AND id = $2", [
+      req.businessId,
+      req.params.id,
+    ]);
     res.json({ message: "Turno eliminado" });
   } catch (error) {
     console.error("Error eliminando turno:", error);
@@ -398,33 +355,29 @@ app.delete("/api/turnos/:id", requireBusiness, async (req, res) => {
 
 // ========== RUTAS DE CLIENTES ==========
 
-app.get(
-  "/api/clientes/whatsapp/:whatsapp",
-  requireBusiness,
-  async (req, res) => {
-    const { whatsapp } = req.params;
+app.get("/api/clientes/whatsapp/:whatsapp", requireBusiness, async (req, res) => {
+  const { whatsapp } = req.params;
 
-    try {
-      const result = await pool.query(
-        "SELECT * FROM tenant_paula.clientes WHERE business_id = $1 AND whatsapp = $2",
-        [req.businessId, whatsapp],
-      );
-      res.json(result.rows[0] || null);
-    } catch (error) {
-      console.error("Error buscando cliente:", error);
-      res.status(500).json({ error: error.message });
-    }
-  },
-);
+  try {
+    const result = await pool.query("SELECT * FROM tenant_paula.clientes WHERE business_id = $1 AND whatsapp = $2", [
+      req.businessId,
+      whatsapp,
+    ]);
+    res.json(result.rows[0] || null);
+  } catch (error) {
+    console.error("Error buscando cliente:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.get("/api/clientes/dni/:dni", requireBusiness, async (req, res) => {
   const { dni } = req.params;
 
   try {
-    const result = await pool.query(
-      "SELECT * FROM tenant_paula.clientes WHERE business_id = $1 AND whatsapp = $2",
-      [req.businessId, dni],
-    );
+    const result = await pool.query("SELECT * FROM tenant_paula.clientes WHERE business_id = $1 AND whatsapp = $2", [
+      req.businessId,
+      dni,
+    ]);
     res.json(result.rows[0] || null);
   } catch (error) {
     console.error("Error buscando cliente:", error);
@@ -475,10 +428,11 @@ app.put("/api/clientes/:id/deuda", requireBusiness, async (req, res) => {
   const { saldo_deuda } = req.body;
 
   try {
-    await pool.query(
-      "UPDATE tenant_paula.clientes SET saldo_deuda = $1 WHERE business_id = $2 AND id = $3",
-      [saldo_deuda, req.businessId, id],
-    );
+    await pool.query("UPDATE tenant_paula.clientes SET saldo_deuda = $1 WHERE business_id = $2 AND id = $3", [
+      saldo_deuda,
+      req.businessId,
+      id,
+    ]);
     res.json({ message: "Saldo actualizado" });
   } catch (error) {
     console.error("Error actualizando saldo:", error);
@@ -496,6 +450,126 @@ app.get("/api/clientes", requireBusiness, async (req, res) => {
   } catch (error) {
     console.error("Error obteniendo clientes:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+const { hashPassword, verifyPassword, generateToken } = require("./utils/auth");
+const { requireAuth, requireDueno, requireSuperAdmin } = require("./middleware/authMiddleware");
+const rateLimit = require("express-rate-limit");
+
+// Rate limiting para login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  message: "Demasiados intentos de login. Intenta de nuevo en 15 minutos.",
+  handler: (req, res) => {
+    res.status(429).json({
+      error: "Demasiados intentos de login. Intenta de nuevo en 15 minutos.",
+    });
+  },
+});
+
+// ========== AUTENTICACIÓN ==========
+
+app.post("/api/auth/login", loginLimiter, async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email y password requeridos" });
+  }
+
+  try {
+    // Buscar en qué tenant está el usuario
+    const tenantsResult = await pool.query("SELECT id, schema_name FROM public.tenants");
+
+    let user = null;
+    let businessId = null;
+    let userSchema = null;
+
+    // Buscar el usuario en cada tenant
+    for (const tenant of tenantsResult.rows) {
+      const authResult = await pool.query(
+        `SELECT pa.*, p.nombre, p.apellido, p.es_dueno, p.color, p.activo as profesional_activo
+         FROM ${tenant.schema_name}.profesional_auth pa
+         JOIN ${tenant.schema_name}.profesionales p ON pa.profesional_id = p.id
+         WHERE pa.email = $1`,
+        [email],
+      );
+
+      if (authResult.rows.length > 0) {
+        user = authResult.rows[0];
+        businessId = tenant.id;
+        userSchema = tenant.schema_name;
+        break;
+      }
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: "Credenciales inválidas" });
+    }
+
+    // Verificar si está bloqueado
+    if (user.bloqueado_hasta && new Date(user.bloqueado_hasta) > new Date()) {
+      return res.status(403).json({
+        error: "Cuenta bloqueada temporalmente",
+      });
+    }
+
+    // Verificar si está activo
+    if (!user.activo || !user.profesional_activo) {
+      return res.status(403).json({ error: "Usuario inactivo" });
+    }
+
+    // Verificar password
+    const passwordValido = await verifyPassword(password, user.password_hash);
+
+    if (!passwordValido) {
+      const intentos = user.intentos_fallidos + 1;
+      const bloqueado = intentos >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+
+      await pool.query(
+        `UPDATE ${userSchema}.profesional_auth 
+         SET intentos_fallidos = $1, bloqueado_hasta = $2 
+         WHERE profesional_id = $3`,
+        [intentos, bloqueado, user.profesional_id],
+      );
+
+      return res.status(401).json({
+        error: "Credenciales inválidas",
+        intentosRestantes: 5 - intentos,
+      });
+    }
+
+    // Login exitoso
+    await pool.query(
+      `UPDATE ${userSchema}.profesional_auth 
+       SET intentos_fallidos = 0, bloqueado_hasta = NULL, ultimo_login = NOW() 
+       WHERE profesional_id = $1`,
+      [user.profesional_id],
+    );
+
+    const token = generateToken({
+      profesionalId: user.profesional_id,
+      businessId: businessId,
+      email: user.email,
+      es_dueno: user.es_dueno,
+      tipo: "profesional",
+    });
+
+    res.json({
+      token,
+      user: {
+        id: user.profesional_id,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        email: user.email,
+        es_dueno: user.es_dueno,
+        color: user.color,
+      },
+    });
+  } catch (error) {
+    console.error("Error en login:", error);
+    res.status(500).json({ error: "Error del servidor" });
   }
 });
 
@@ -672,10 +746,10 @@ app.post("/api/admin/servicios", requireBusiness, async (req, res) => {
 
 app.delete("/api/admin/servicios/:id", requireBusiness, async (req, res) => {
   try {
-    await pool.query(
-      "DELETE FROM tenant_paula.servicios WHERE business_id = $1 AND id = $2",
-      [req.businessId, req.params.id],
-    );
+    await pool.query("DELETE FROM tenant_paula.servicios WHERE business_id = $1 AND id = $2", [
+      req.businessId,
+      req.params.id,
+    ]);
     res.json({ message: "Servicio eliminado" });
   } catch (error) {
     console.error("Error eliminando servicio:", error);
@@ -685,94 +759,78 @@ app.delete("/api/admin/servicios/:id", requireBusiness, async (req, res) => {
 
 // ========== RUTAS DE PROFESIONAL-SERVICIOS ==========
 
-app.get(
-  "/api/profesionales/:id/servicios",
-  requireBusiness,
-  async (req, res) => {
-    const { id } = req.params;
+app.get("/api/profesionales/:id/servicios", requireBusiness, async (req, res) => {
+  const { id } = req.params;
 
-    try {
-      const result = await pool.query(
-        `SELECT s.* 
+  try {
+    const result = await pool.query(
+      `SELECT s.* 
        FROM tenant_paula.servicios s
        INNER JOIN tenant_paula.profesional_servicios ps ON s.id = ps.servicio_id
        WHERE ps.business_id = $1 AND ps.profesional_id = $2`,
-        [req.businessId, id],
-      );
-      res.json(result.rows);
-    } catch (error) {
-      console.error("Error obteniendo servicios del profesional:", error);
-      res.status(500).json({ error: error.message });
-    }
-  },
-);
+      [req.businessId, id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo servicios del profesional:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
-app.post(
-  "/api/profesionales/:id/servicios",
-  requireBusiness,
-  async (req, res) => {
-    const { id } = req.params;
-    const { servicio_id } = req.body;
+app.post("/api/profesionales/:id/servicios", requireBusiness, async (req, res) => {
+  const { id } = req.params;
+  const { servicio_id } = req.body;
 
-    try {
-      const result = await pool.query(
-        `INSERT INTO tenant_paula.profesional_servicios (business_id, profesional_id, servicio_id) 
+  try {
+    const result = await pool.query(
+      `INSERT INTO tenant_paula.profesional_servicios (business_id, profesional_id, servicio_id) 
        VALUES ($1, $2, $3)
        RETURNING id`,
-        [req.businessId, id, servicio_id],
-      );
-      res.json({ id: result.rows[0].id, message: "Servicio asignado" });
-    } catch (error) {
-      if (error.code === "23505") {
-        return res.status(400).json({ error: "Servicio ya asignado" });
-      }
-      console.error("Error asignando servicio:", error);
-      res.status(500).json({ error: error.message });
+      [req.businessId, id, servicio_id],
+    );
+    res.json({ id: result.rows[0].id, message: "Servicio asignado" });
+  } catch (error) {
+    if (error.code === "23505") {
+      return res.status(400).json({ error: "Servicio ya asignado" });
     }
-  },
-);
+    console.error("Error asignando servicio:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
-app.delete(
-  "/api/profesionales/:id/servicios/:servicio_id",
-  requireBusiness,
-  async (req, res) => {
-    const { id, servicio_id } = req.params;
+app.delete("/api/profesionales/:id/servicios/:servicio_id", requireBusiness, async (req, res) => {
+  const { id, servicio_id } = req.params;
 
-    try {
-      await pool.query(
-        `DELETE FROM tenant_paula.profesional_servicios 
+  try {
+    await pool.query(
+      `DELETE FROM tenant_paula.profesional_servicios 
        WHERE business_id = $1 AND profesional_id = $2 AND servicio_id = $3`,
-        [req.businessId, id, servicio_id],
-      );
-      res.json({ message: "Servicio desasignado" });
-    } catch (error) {
-      console.error("Error desasignando servicio:", error);
-      res.status(500).json({ error: error.message });
-    }
-  },
-);
+      [req.businessId, id, servicio_id],
+    );
+    res.json({ message: "Servicio desasignado" });
+  } catch (error) {
+    console.error("Error desasignando servicio:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
-app.get(
-  "/api/servicios/:id/profesionales",
-  requireBusiness,
-  async (req, res) => {
-    const { id } = req.params;
+app.get("/api/servicios/:id/profesionales", requireBusiness, async (req, res) => {
+  const { id } = req.params;
 
-    try {
-      const result = await pool.query(
-        `SELECT p.* 
+  try {
+    const result = await pool.query(
+      `SELECT p.* 
        FROM tenant_paula.profesionales p
        INNER JOIN tenant_paula.profesional_servicios ps ON p.id = ps.profesional_id
        WHERE ps.business_id = $1 AND ps.servicio_id = $2`,
-        [req.businessId, id],
-      );
-      res.json(result.rows);
-    } catch (error) {
-      console.error("Error obteniendo profesionales del servicio:", error);
-      res.status(500).json({ error: error.message });
-    }
-  },
-);
+      [req.businessId, id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo profesionales del servicio:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // ========== RUTAS DE SOBRETURNOS ==========
 
@@ -814,14 +872,7 @@ app.post("/api/sobreturnos", requireBusiness, async (req, res) => {
       `INSERT INTO tenant_paula.sobreturnos (business_id, profesional_id, fecha, hora_inicio, hora_fin, motivo)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
-      [
-        req.businessId,
-        profesional_id,
-        fecha,
-        hora_inicio,
-        hora_fin,
-        motivo || null,
-      ],
+      [req.businessId, profesional_id, fecha, hora_inicio, hora_fin, motivo || null],
     );
     res.json({
       id: result.rows[0].id,
@@ -835,10 +886,10 @@ app.post("/api/sobreturnos", requireBusiness, async (req, res) => {
 
 app.delete("/api/sobreturnos/:id", requireBusiness, async (req, res) => {
   try {
-    await pool.query(
-      "DELETE FROM tenant_paula.sobreturnos WHERE business_id = $1 AND id = $2",
-      [req.businessId, req.params.id],
-    );
+    await pool.query("DELETE FROM tenant_paula.sobreturnos WHERE business_id = $1 AND id = $2", [
+      req.businessId,
+      req.params.id,
+    ]);
     res.json({ message: "Sobreturno eliminado" });
   } catch (error) {
     console.error("Error eliminando sobreturno:", error);
@@ -851,8 +902,7 @@ app.delete("/api/sobreturnos/:id", requireBusiness, async (req, res) => {
 app.get("/api/bloques-bloqueados", requireBusiness, async (req, res) => {
   const { fecha_desde, fecha_hasta, profesional_id } = req.query;
 
-  let sql =
-    "SELECT * FROM tenant_paula.bloques_bloqueados WHERE business_id = $1";
+  let sql = "SELECT * FROM tenant_paula.bloques_bloqueados WHERE business_id = $1";
   const params = [req.businessId];
   let paramIndex = 2;
 
@@ -891,14 +941,7 @@ app.post("/api/bloques-bloqueados", requireBusiness, async (req, res) => {
       `INSERT INTO tenant_paula.bloques_bloqueados (business_id, profesional_id, fecha, hora_inicio, hora_fin, motivo)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
-      [
-        req.businessId,
-        profesional_id,
-        fecha,
-        hora_inicio,
-        hora_fin,
-        motivo || null,
-      ],
+      [req.businessId, profesional_id, fecha, hora_inicio, hora_fin, motivo || null],
     );
     res.json({
       id: result.rows[0].id,
@@ -912,10 +955,10 @@ app.post("/api/bloques-bloqueados", requireBusiness, async (req, res) => {
 
 app.delete("/api/bloques-bloqueados/:id", requireBusiness, async (req, res) => {
   try {
-    await pool.query(
-      "DELETE FROM tenant_paula.bloques_bloqueados WHERE business_id = $1 AND id = $2",
-      [req.businessId, req.params.id],
-    );
+    await pool.query("DELETE FROM tenant_paula.bloques_bloqueados WHERE business_id = $1 AND id = $2", [
+      req.businessId,
+      req.params.id,
+    ]);
     res.json({ message: "Bloqueo eliminado" });
   } catch (error) {
     console.error("Error eliminando bloqueo:", error);
@@ -947,13 +990,7 @@ app.get("/api/auth/google/callback", async (req, res) => {
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (profesional_id) 
        DO UPDATE SET access_token = $3, refresh_token = $4, expiry_date = $5`,
-      [
-        businessId,
-        state,
-        tokens.access_token,
-        tokens.refresh_token,
-        tokens.expiry_date,
-      ],
+      [businessId, state, tokens.access_token, tokens.refresh_token, tokens.expiry_date],
     );
 
     console.log(`✅ Google vinculado para el profesional ID: ${state}`);
@@ -964,31 +1001,14 @@ app.get("/api/auth/google/callback", async (req, res) => {
   }
 });
 app.put("/api/admin/configuracion", requireBusiness, async (req, res) => {
-  const {
-    nombre_negocio,
-    slogan,
-    telefono,
-    instagram,
-    direccion,
-    color_primario,
-    banner_position,
-  } = req.body;
+  const { nombre_negocio, slogan, telefono, instagram, direccion, color_primario, banner_position } = req.body;
 
   try {
     await pool.query(
       `UPDATE tenant_paula.configuracion_negocio 
        SET nombre_negocio = $1, slogan = $2, telefono = $3, instagram = $4, direccion = $5, color_primario = $6, banner_position = $7
        WHERE business_id = $8`,
-      [
-        nombre_negocio,
-        slogan,
-        telefono,
-        instagram,
-        direccion,
-        color_primario,
-        banner_position,
-        req.businessId,
-      ],
+      [nombre_negocio, slogan, telefono, instagram, direccion, color_primario, banner_position, req.businessId],
     );
     res.json({ message: "Configuración actualizada" });
   } catch (error) {
@@ -997,56 +1017,46 @@ app.put("/api/admin/configuracion", requireBusiness, async (req, res) => {
   }
 });
 // Subir banner
-app.post(
-  "/api/admin/configuracion/banner",
-  requireBusiness,
-  upload.single("banner"),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No se recibió ninguna imagen" });
-      }
-
-      const bannerUrl = `/uploads/${req.file.filename}`;
-
-      await pool.query(
-        "UPDATE tenant_paula.configuracion_negocio SET banner_url = $1 WHERE business_id = $2",
-        [bannerUrl, req.businessId],
-      );
-
-      res.json({ banner_url: bannerUrl });
-    } catch (error) {
-      console.error("Error subiendo banner:", error);
-      res.status(500).json({ error: error.message });
+app.post("/api/admin/configuracion/banner", requireBusiness, upload.single("banner"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No se recibió ninguna imagen" });
     }
-  },
-);
+
+    const bannerUrl = `/uploads/${req.file.filename}`;
+
+    await pool.query("UPDATE tenant_paula.configuracion_negocio SET banner_url = $1 WHERE business_id = $2", [
+      bannerUrl,
+      req.businessId,
+    ]);
+
+    res.json({ banner_url: bannerUrl });
+  } catch (error) {
+    console.error("Error subiendo banner:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Subir logo
-app.post(
-  "/api/admin/configuracion/logo",
-  requireBusiness,
-  upload.single("logo"),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No se recibió ninguna imagen" });
-      }
-
-      const logoUrl = `/uploads/${req.file.filename}`;
-
-      await pool.query(
-        "UPDATE tenant_paula.configuracion_negocio SET logo_url = $1 WHERE business_id = $2",
-        [logoUrl, req.businessId],
-      );
-
-      res.json({ logo_url: logoUrl });
-    } catch (error) {
-      console.error("Error subiendo logo:", error);
-      res.status(500).json({ error: error.message });
+app.post("/api/admin/configuracion/logo", requireBusiness, upload.single("logo"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No se recibió ninguna imagen" });
     }
-  },
-);
+
+    const logoUrl = `/uploads/${req.file.filename}`;
+
+    await pool.query("UPDATE tenant_paula.configuracion_negocio SET logo_url = $1 WHERE business_id = $2", [
+      logoUrl,
+      req.businessId,
+    ]);
+
+    res.json({ logo_url: logoUrl });
+  } catch (error) {
+    console.error("Error subiendo logo:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 // ========== INICIO DEL SERVIDOR ==========
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);

@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Calendar from "../components/booking/Calendar";
 import TimeSlotSelector from "../components/booking/TimeSlotSelector";
-import {
-  getServicios,
-  getProfesionales,
-  getTurnos,
-  createTurno,
-  getConfiguracion,
-} from "../services/api";
+import { getServicios, getProfesionales, getTurnos, createTurno, getConfiguracion } from "../services/api";
 import { formatDate } from "../utils/dateUtils";
 import { useCliente } from "../contexts/ClienteContext";
 import axios from "axios";
@@ -94,9 +88,7 @@ const ClienteReserva = () => {
 
     // Cargar profesionales que ofrecen este servicio
     try {
-      const response = await axios.get(
-        `http://localhost:5000/api/servicios/${servicio.id}/profesionales`,
-      );
+      const response = await axios.get(`http://localhost:5000/api/servicios/${servicio.id}/profesionales`);
       setProfesionales(response.data);
     } catch (error) {
       console.error("Error cargando profesionales del servicio:", error);
@@ -110,9 +102,7 @@ const ClienteReserva = () => {
 
     // Cargar horarios del profesional seleccionado
     try {
-      const response = await axios.get(
-        `http://localhost:5000/api/profesionales/${profesional.id}/horarios`,
-      );
+      const response = await axios.get(`http://localhost:5000/api/profesionales/${profesional.id}/horarios`);
       setConfiguracion(response.data);
     } catch (error) {
       console.error("Error cargando horarios del profesional:", error);
@@ -135,18 +125,47 @@ const ClienteReserva = () => {
     setError("");
 
     try {
-      // Calcular precio y saldo
+      let clienteId = null;
+      const whatsappFinal = formData.whatsapp || cliente?.whatsapp;
+      const nombreFinal = formData.nombre || cliente?.nombre;
+      const apellidoFinal = formData.apellido || cliente?.apellido;
+
+      // Si hay WhatsApp, buscar o crear cliente
+      if (whatsappFinal) {
+        try {
+          // Buscar si el cliente ya existe
+          const clienteExistente = await axios.get(`http://localhost:5000/api/clientes/whatsapp/${whatsappFinal}`);
+
+          if (clienteExistente.data) {
+            // Cliente existe
+            clienteId = clienteExistente.data.id;
+          } else {
+            // Crear nuevo cliente
+            const nuevoCliente = await axios.post("http://localhost:5000/api/clientes", {
+              whatsapp: whatsappFinal,
+              nombre: nombreFinal,
+              apellido: apellidoFinal || "",
+              edad: null,
+              telefono: whatsappFinal,
+              email: formData.email || null,
+            });
+            clienteId = nuevoCliente.data.id;
+          }
+        } catch (error) {
+          console.error("Error gestionando cliente:", error);
+          // Si falla, continuar sin cliente_id
+        }
+      }
+
+      // Crear el turno
       const precioServicio = formData.servicio.precio || 0;
 
       await createTurno({
         servicio_id: formData.servicio.id,
         profesional_id: formData.profesional.id,
-        cliente_id: cliente?.id || null,
-        cliente_nombre:
-          formData.nombre && formData.apellido
-            ? `${formData.nombre} ${formData.apellido}`
-            : `${cliente?.nombre} ${cliente?.apellido}`,
-        cliente_whatsapp: formData.whatsapp || cliente?.whatsapp,
+        cliente_id: clienteId,
+        cliente_nombre: `${nombreFinal} ${apellidoFinal}`,
+        cliente_whatsapp: whatsappFinal,
         fecha: formatDate(formData.fecha),
         hora_inicio: formData.horario.inicio,
         hora_fin: formData.horario.fin,
@@ -157,6 +176,7 @@ const ClienteReserva = () => {
 
       setSuccess(true);
     } catch (error) {
+      console.error("Error al crear la reserva:", error);
       setError(error.response?.data?.error || "Error al crear el turno");
     } finally {
       setLoading(false);
@@ -187,45 +207,24 @@ const ClienteReserva = () => {
           <div className="card text-center p-12">
             {/* Success Icon */}
             <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl ring-8 ring-green-100 animate-scale-in">
-              <svg
-                className="w-12 h-12 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={3}
-                  d="M5 13l4 4L19 7"
-                />
+              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </div>
 
             {/* Success Message */}
-            <h2 className="text-4xl font-bold text-dark-900 mb-4">
-              ¡Reserva Confirmada!
-            </h2>
-            <p className="text-xl text-dark-600 mb-8">
-              Tu turno ha sido agendado exitosamente
-            </p>
+            <h2 className="text-4xl font-bold text-dark-900 mb-4">¡Reserva Confirmada!</h2>
+            <p className="text-xl text-dark-600 mb-8">Tu turno ha sido agendado exitosamente</p>
 
             {/* Booking Details */}
             <div className="bg-gradient-to-br from-brand-50 to-accent-50 rounded-2xl p-8 mb-8 border-2 border-brand-200">
-              <h3 className="text-lg font-bold text-dark-900 mb-6">
-                Detalles de tu Reserva
-              </h3>
+              <h3 className="text-lg font-bold text-dark-900 mb-6">Detalles de tu Reserva</h3>
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between py-3 border-b border-brand-200/50">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center">
-                      <svg
-                        className="w-5 h-5 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -234,24 +233,15 @@ const ClienteReserva = () => {
                         />
                       </svg>
                     </div>
-                    <span className="text-sm font-medium text-dark-600">
-                      Servicio
-                    </span>
+                    <span className="text-sm font-medium text-dark-600">Servicio</span>
                   </div>
-                  <span className="text-lg font-bold text-dark-900">
-                    {formData.servicio.nombre}
-                  </span>
+                  <span className="text-lg font-bold text-dark-900">{formData.servicio.nombre}</span>
                 </div>
 
                 <div className="flex items-center justify-between py-3 border-b border-brand-200/50">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center">
-                      <svg
-                        className="w-5 h-5 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -260,24 +250,15 @@ const ClienteReserva = () => {
                         />
                       </svg>
                     </div>
-                    <span className="text-sm font-medium text-dark-600">
-                      Profesional
-                    </span>
+                    <span className="text-sm font-medium text-dark-600">Profesional</span>
                   </div>
-                  <span className="text-lg font-bold text-dark-900">
-                    {formData.profesional.nombre}
-                  </span>
+                  <span className="text-lg font-bold text-dark-900">{formData.profesional.nombre}</span>
                 </div>
 
                 <div className="flex items-center justify-between py-3 border-b border-brand-200/50">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center">
-                      <svg
-                        className="w-5 h-5 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -286,24 +267,15 @@ const ClienteReserva = () => {
                         />
                       </svg>
                     </div>
-                    <span className="text-sm font-medium text-dark-600">
-                      Fecha
-                    </span>
+                    <span className="text-sm font-medium text-dark-600">Fecha</span>
                   </div>
-                  <span className="text-lg font-bold text-dark-900">
-                    {formatDate(formData.fecha)}
-                  </span>
+                  <span className="text-lg font-bold text-dark-900">{formatDate(formData.fecha)}</span>
                 </div>
 
                 <div className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center">
-                      <svg
-                        className="w-5 h-5 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -312,13 +284,9 @@ const ClienteReserva = () => {
                         />
                       </svg>
                     </div>
-                    <span className="text-sm font-medium text-dark-600">
-                      Horario
-                    </span>
+                    <span className="text-sm font-medium text-dark-600">Horario</span>
                   </div>
-                  <span className="text-lg font-bold text-dark-900">
-                    {formData.horario.inicio}
-                  </span>
+                  <span className="text-lg font-bold text-dark-900">{formData.horario.inicio}</span>
                 </div>
               </div>
             </div>
@@ -326,27 +294,15 @@ const ClienteReserva = () => {
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button onClick={resetForm} className="btn-primary btn-lg">
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
                 Agendar Otro Turno
               </button>
             </div>
 
             {/* Footer Note */}
-            <p className="text-sm text-dark-500 mt-8">
-              Te enviaremos un recordatorio por WhatsApp 24 horas antes
-            </p>
+            <p className="text-sm text-dark-500 mt-8">Te enviaremos un recordatorio por WhatsApp 24 horas antes</p>
           </div>
         </div>
       </div>
@@ -359,12 +315,7 @@ const ClienteReserva = () => {
         {/* Header */}
         <div className="text-center mb-12 animate-fade-in">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-500 to-brand-600 rounded-2xl mb-6 shadow-lg shadow-brand-500/30 rotate-3">
-            <svg
-              className="w-8 h-8 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -408,42 +359,14 @@ const ClienteReserva = () => {
             ].map((s, index) => (
               <React.Fragment key={s.num}>
                 <div className="flex flex-col items-center">
-                  <div
-                    className={
-                      step >= s.num
-                        ? "step-active"
-                        : step > s.num
-                          ? "step-completed"
-                          : "step-inactive"
-                    }
-                  >
+                  <div className={step >= s.num ? "step-active" : step > s.num ? "step-completed" : "step-inactive"}>
                     {step > s.num ? (
-                      <svg
-                        className="w-6 h-6"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={3}
-                          d="M5 13l4 4L19 7"
-                        />
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     ) : (
-                      <svg
-                        className="w-6 h-6"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d={s.icon}
-                        />
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={s.icon} />
                       </svg>
                     )}
                   </div>
@@ -453,13 +376,7 @@ const ClienteReserva = () => {
                     {s.label}
                   </span>
                 </div>
-                {index < 3 && (
-                  <div
-                    className={
-                      step > s.num ? "step-line-active" : "step-line-inactive"
-                    }
-                  />
-                )}
+                {index < 3 && <div className={step > s.num ? "step-line-active" : "step-line-inactive"} />}
               </React.Fragment>
             ))}
           </div>
@@ -469,12 +386,7 @@ const ClienteReserva = () => {
         {error && (
           <div className="max-w-3xl mx-auto mb-8 animate-slide-down">
             <div className="alert-error flex items-start gap-3">
-              <svg
-                className="w-6 h-6 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -496,12 +408,8 @@ const ClienteReserva = () => {
           {step === 1 && (
             <div className="animate-slide-up">
               <div className="card p-8 md:p-12">
-                <h2 className="text-3xl font-bold text-dark-900 mb-2">
-                  Selecciona tu Servicio
-                </h2>
-                <p className="text-dark-600 mb-8">
-                  Elige el tratamiento que deseas realizar
-                </p>
+                <h2 className="text-3xl font-bold text-dark-900 mb-2">Selecciona tu Servicio</h2>
+                <p className="text-dark-600 mb-8">Elige el tratamiento que deseas realizar</p>
 
                 <div className="grid md:grid-cols-2 gap-4">
                   {servicios.map((servicio) => (
@@ -512,12 +420,7 @@ const ClienteReserva = () => {
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                          <svg
-                            className="w-6 h-6 text-white"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -532,12 +435,7 @@ const ClienteReserva = () => {
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                          />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       </div>
 
@@ -546,12 +444,7 @@ const ClienteReserva = () => {
                       </h3>
 
                       <div className="flex items-center gap-2 text-dark-600">
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -559,9 +452,7 @@ const ClienteReserva = () => {
                             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        <span className="font-medium">
-                          {servicio.duracion} minutos
-                        </span>
+                        <span className="font-medium">{servicio.duracion} minutos</span>
                       </div>
                     </button>
                   ))}
@@ -574,32 +465,15 @@ const ClienteReserva = () => {
           {step === 2 && (
             <div className="animate-slide-up">
               <div className="card p-8 md:p-12">
-                <button
-                  onClick={() => setStep(1)}
-                  className="btn-ghost btn-sm mb-6"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
+                <button onClick={() => setStep(1)} className="btn-ghost btn-sm mb-6">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                   Volver
                 </button>
 
-                <h2 className="text-3xl font-bold text-dark-900 mb-2">
-                  Elige tu Especialista
-                </h2>
-                <p className="text-dark-600 mb-8">
-                  Selecciona con quien prefieres realizar el tratamiento
-                </p>
+                <h2 className="text-3xl font-bold text-dark-900 mb-2">Elige tu Especialista</h2>
+                <p className="text-dark-600 mb-8">Selecciona con quien prefieres realizar el tratamiento</p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                   {profesionales.map((prof) => (
@@ -625,27 +499,13 @@ const ClienteReserva = () => {
           {step === 3 && (
             <div className="space-y-6 animate-slide-up">
               <button onClick={() => setStep(2)} className="btn-ghost btn-sm">
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
                 Volver
               </button>
 
-              <Calendar
-                selectedDate={formData.fecha}
-                onDateSelect={handleDateSelect}
-                configuracion={configuracion}
-              />
+              <Calendar selectedDate={formData.fecha} onDateSelect={handleDateSelect} configuracion={configuracion} />
 
               {formData.fecha && (
                 <TimeSlotSelector
@@ -665,22 +525,9 @@ const ClienteReserva = () => {
           {step === 4 && (
             <div className="animate-slide-up">
               <div className="card p-8 md:p-12">
-                <button
-                  onClick={() => setStep(3)}
-                  className="btn-ghost btn-sm mb-6"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
+                <button onClick={() => setStep(3)} className="btn-ghost btn-sm mb-6">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                   Volver
                 </button>
@@ -697,20 +544,14 @@ const ClienteReserva = () => {
                         <p className="font-bold text-dark-900">
                           {cliente.nombre} {cliente.apellido}
                         </p>
-                        <p className="text-sm text-dark-600">
-                          WhatsApp: {cliente.whatsapp}
-                        </p>
+                        <p className="text-sm text-dark-600">WhatsApp: {cliente.whatsapp}</p>
                       </div>
                     </div>
                   </div>
                 )}
 
-                <h2 className="text-3xl font-bold text-dark-900 mb-2">
-                  Confirma tu Reserva
-                </h2>
-                <p className="text-dark-600 mb-8">
-                  Completa tus datos para finalizar la agenda
-                </p>
+                <h2 className="text-3xl font-bold text-dark-900 mb-2">Confirma tu Reserva</h2>
+                <p className="text-dark-600 mb-8">Completa tus datos para finalizar la agenda</p>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Solo mostrar campos si NO hay cliente logueado */}
@@ -721,9 +562,7 @@ const ClienteReserva = () => {
                         <input
                           type="text"
                           value={formData.nombre}
-                          onChange={(e) =>
-                            setFormData({ ...formData, nombre: e.target.value })
-                          }
+                          onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                           className="input"
                           placeholder="María"
                           required
@@ -762,9 +601,7 @@ const ClienteReserva = () => {
                           placeholder="+54 9 11 1234-5678"
                           required
                         />
-                        <p className="text-sm text-dark-500 mt-2">
-                          Te enviaremos un recordatorio 24 horas antes
-                        </p>
+                        <p className="text-sm text-dark-500 mt-2">Te enviaremos un recordatorio 24 horas antes</p>
                       </div>
                     </>
                   )}
@@ -774,9 +611,7 @@ const ClienteReserva = () => {
                     <input
                       type="email"
                       value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className="input"
                       placeholder="maria@ejemplo.com"
                     />
@@ -786,9 +621,7 @@ const ClienteReserva = () => {
                     <label className="label">Notas (Opcional)</label>
                     <textarea
                       value={formData.notas}
-                      onChange={(e) =>
-                        setFormData({ ...formData, notas: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
                       className="input resize-none"
                       rows="3"
                       placeholder="¿Tienes alguna alergia o requerimiento especial?"
@@ -797,27 +630,19 @@ const ClienteReserva = () => {
 
                   {/* Summary */}
                   <div className="bg-gradient-to-br from-brand-50 to-accent-50 rounded-2xl p-6 border-2 border-brand-200">
-                    <h3 className="font-bold text-lg text-dark-900 mb-4">
-                      Resumen de tu Reserva
-                    </h3>
+                    <h3 className="font-bold text-lg text-dark-900 mb-4">Resumen de tu Reserva</h3>
                     <div className="space-y-3 text-sm">
                       <div className="flex justify-between">
                         <span className="text-dark-600">Servicio</span>
-                        <span className="font-semibold text-dark-900">
-                          {formData.servicio.nombre}
-                        </span>
+                        <span className="font-semibold text-dark-900">{formData.servicio.nombre}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-dark-600">Especialista</span>
-                        <span className="font-semibold text-dark-900">
-                          {formData.profesional.nombre}
-                        </span>
+                        <span className="font-semibold text-dark-900">{formData.profesional.nombre}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-dark-600">Fecha</span>
-                        <span className="font-semibold text-dark-900">
-                          {formatDate(formData.fecha)}
-                        </span>
+                        <span className="font-semibold text-dark-900">{formatDate(formData.fecha)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-dark-600">Horario</span>
@@ -827,18 +652,12 @@ const ClienteReserva = () => {
                       </div>
                       <div className="flex justify-between pt-3 border-t border-brand-200">
                         <span className="text-dark-600">Duración</span>
-                        <span className="font-semibold text-dark-900">
-                          {formData.servicio.duracion} minutos
-                        </span>
+                        <span className="font-semibold text-dark-900">{formData.servicio.duracion} minutos</span>
                       </div>
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn-primary btn-xl w-full"
-                  >
+                  <button type="submit" disabled={loading} className="btn-primary btn-xl w-full">
                     {loading ? (
                       <>
                         <div className="spinner w-6 h-6" />
@@ -846,12 +665,7 @@ const ClienteReserva = () => {
                       </>
                     ) : (
                       <>
-                        <svg
-                          className="w-6 h-6"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"

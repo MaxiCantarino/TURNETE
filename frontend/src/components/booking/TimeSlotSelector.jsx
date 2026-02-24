@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  generateTimeSlotsWithBreak,
-  isTimeSlotAvailable,
-} from "../../utils/dateUtils";
+import { generateTimeSlotsWithBreak, isTimeSlotAvailable } from "../../utils/dateUtils";
 import axios from "axios";
 
 const TimeSlotSelector = ({
@@ -32,15 +29,12 @@ const TimeSlotSelector = ({
 
     try {
       const fechaStr = selectedDate.toISOString().split("T")[0];
-      const response = await axios.get(
-        "http://localhost:5000/api/sobreturnos",
-        {
-          params: {
-            fecha: fechaStr,
-            profesional_id: profesionalId,
-          },
+      const response = await axios.get("http://localhost:5000/api/sobreturnos", {
+        params: {
+          fecha: fechaStr,
+          profesional_id: profesionalId,
         },
-      );
+      });
       setSobreturnos(response.data);
     } catch (error) {
       console.error("Error cargando sobreturnos:", error);
@@ -52,16 +46,13 @@ const TimeSlotSelector = ({
 
     try {
       const fechaStr = selectedDate.toISOString().split("T")[0];
-      const response = await axios.get(
-        "http://localhost:5000/api/bloques-bloqueados",
-        {
-          params: {
-            fecha_desde: fechaStr,
-            fecha_hasta: fechaStr,
-            profesional_id: profesionalId,
-          },
+      const response = await axios.get("http://localhost:5000/api/bloques-bloqueados", {
+        params: {
+          fecha_desde: fechaStr,
+          fecha_hasta: fechaStr,
+          profesional_id: profesionalId,
         },
-      );
+      });
       setBloquesBloqueados(response.data);
     } catch (error) {
       console.error("Error cargando bloques bloqueados:", error);
@@ -72,12 +63,7 @@ const TimeSlotSelector = ({
     return (
       <div className="card p-12 text-center">
         <div className="w-20 h-20 rounded-full bg-dark-100 flex items-center justify-center mx-auto mb-6">
-          <svg
-            className="w-10 h-10 text-dark-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-10 h-10 text-dark-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -86,26 +72,14 @@ const TimeSlotSelector = ({
             />
           </svg>
         </div>
-        <h3 className="text-xl font-bold text-dark-900 mb-2">
-          Selecciona una fecha
-        </h3>
-        <p className="text-dark-600">
-          Elige un día del calendario para ver los horarios disponibles
-        </p>
+        <h3 className="text-xl font-bold text-dark-900 mb-2">Selecciona una fecha</h3>
+        <p className="text-dark-600">Elige un día del calendario para ver los horarios disponibles</p>
       </div>
     );
   }
 
   // Convertir número de día a nombre del día
-  const dayNames = [
-    "Domingo",
-    "Lunes",
-    "Martes",
-    "Miércoles",
-    "Jueves",
-    "Viernes",
-    "Sábado",
-  ];
+  const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   const dayName = dayNames[selectedDate.getDay()];
 
   // Buscar configuración por nombre del día
@@ -113,7 +87,7 @@ const TimeSlotSelector = ({
 
   // Generar slots regulares (de los horarios configurados)
   let slotsRegulares = [];
-  if (configDelDia) {
+  if (configDelDia && configDelDia.hora_inicio && configDelDia.hora_fin) {
     slotsRegulares = generateTimeSlotsWithBreak(
       configDelDia.hora_inicio,
       configDelDia.hora_fin,
@@ -133,11 +107,7 @@ const TimeSlotSelector = ({
     const endMinutes = endHour * 60 + endMin;
     const lastSlotStart = endMinutes - duracionServicio;
 
-    for (
-      let minutes = startMinutes;
-      minutes <= lastSlotStart;
-      minutes += duracionServicio
-    ) {
+    for (let minutes = startMinutes; minutes <= lastSlotStart; minutes += duracionServicio) {
       const hour = Math.floor(minutes / 60);
       const min = minutes % 60;
       const endSlotMinutes = minutes + duracionServicio;
@@ -155,16 +125,13 @@ const TimeSlotSelector = ({
   });
 
   // Combinar slots regulares y sobreturnos, eliminar duplicados
-  const todosLosSlots = [...slotsRegulares, ...slotsSobreturnos].sort((a, b) =>
-    a.inicio.localeCompare(b.inicio),
-  );
+  const todosLosSlots = [...slotsRegulares, ...slotsSobreturnos].sort((a, b) => a.inicio.localeCompare(b.inicio));
 
   // Filtrar disponibles
   const availableSlots = todosLosSlots.filter((slot) => {
     // Verificar si está bloqueado
     const estaBloqueado = bloquesBloqueados.some(
-      (bloque) =>
-        slot.inicio >= bloque.hora_inicio && slot.inicio < bloque.hora_fin,
+      (bloque) => slot.inicio >= bloque.hora_inicio && slot.inicio < bloque.hora_fin,
     );
 
     if (estaBloqueado) return false;
@@ -177,12 +144,7 @@ const TimeSlotSelector = ({
     return (
       <div className="card p-12 text-center">
         <div className="w-20 h-20 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-6">
-          <svg
-            className="w-10 h-10 text-yellow-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-10 h-10 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -191,12 +153,8 @@ const TimeSlotSelector = ({
             />
           </svg>
         </div>
-        <h3 className="text-xl font-bold text-dark-900 mb-2">
-          Día no laborable
-        </h3>
-        <p className="text-dark-600">
-          No hay atención disponible para este día
-        </p>
+        <h3 className="text-xl font-bold text-dark-900 mb-2">Día no laborable</h3>
+        <p className="text-dark-600">No hay atención disponible para este día</p>
       </div>
     );
   }
@@ -205,16 +163,9 @@ const TimeSlotSelector = ({
     <div className="card p-8">
       {/* Header with counter */}
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold text-dark-900">
-          Horarios Disponibles
-        </h3>
+        <h3 className="text-2xl font-bold text-dark-900">Horarios Disponibles</h3>
         <div className="badge-brand text-base px-4 py-2">
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -245,14 +196,10 @@ const TimeSlotSelector = ({
                 ${slot.esSobreturno && isAvailable ? "ring-2 ring-orange-400" : ""}
               `}
             >
-              {slot.esSobreturno && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full"></div>
-              )}
+              {slot.esSobreturno && <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full"></div>}
               <div className="font-bold text-base">{slot.inicio}</div>
               {!isAvailable && <div className="text-xs mt-1">Ocupado</div>}
-              {slot.esSobreturno && isAvailable && (
-                <div className="text-xs mt-1 text-orange-600">Extra</div>
-              )}
+              {slot.esSobreturno && isAvailable && <div className="text-xs mt-1 text-orange-600">Extra</div>}
             </button>
           );
         })}

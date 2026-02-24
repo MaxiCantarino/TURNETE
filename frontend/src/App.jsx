@@ -1,10 +1,5 @@
 import React from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ClienteProvider } from "./contexts/ClienteContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -20,29 +15,30 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminConfiguracion from "./pages/AdminConfiguracion";
 import AdminClientes from "./pages/AdminClientes";
 import AdminAgenda from "./pages/AdminAgenda";
-import AdminAgendaSemanal from "./pages/AdminAgendaSemanal";
 import AdminServicios from "./pages/AdminServicios";
 import AdminProfesionales from "./pages/AdminProfesionales";
 import AdminHorarios2 from "./pages/AdminHorarios2";
+import AdminReportes from "./pages/AdminReportes";
+
+// Páginas profesional
+import ProfesionalDashboard from "./pages/ProfesionalDashboard";
 
 function AppRoutes() {
   return (
     <Routes>
-      {/* 1. RUTA RAÍZ: Ahora muestra la Landing Page */}
+      {/* RUTAS PÚBLICAS */}
       <Route path="/" element={<LandingPage />} />
-
-      {/* 2. RUTAS PÚBLICAS CLIENTES */}
       <Route path="/reservar" element={<ClienteReserva />} />
       <Route path="/historial" element={<HistorialCliente />} />
 
-      {/* 3. LOGIN ADMIN (Sin protección) */}
+      {/* LOGIN */}
       <Route path="/admin/login" element={<AdminLogin />} />
 
-      {/* 4. RUTAS PROTEGIDAS - ADMIN */}
+      {/* RUTAS ADMIN (Solo dueños) */}
       <Route
         path="/admin"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireDueno={true}>
             <AdminDashboard />
           </ProtectedRoute>
         }
@@ -50,7 +46,7 @@ function AppRoutes() {
       <Route
         path="/admin/configuracion"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireDueno={true}>
             <AdminConfiguracion />
           </ProtectedRoute>
         }
@@ -58,7 +54,7 @@ function AppRoutes() {
       <Route
         path="/admin/clientes"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireDueno={true}>
             <AdminClientes />
           </ProtectedRoute>
         }
@@ -66,7 +62,7 @@ function AppRoutes() {
       <Route
         path="/admin/profesionales"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireDueno={true}>
             <AdminProfesionales />
           </ProtectedRoute>
         }
@@ -74,23 +70,15 @@ function AppRoutes() {
       <Route
         path="/admin/agenda"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireDueno={true}>
             <AdminAgenda />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/agenda-semanal"
-        element={
-          <ProtectedRoute>
-            <AdminAgendaSemanal />
           </ProtectedRoute>
         }
       />
       <Route
         path="/admin/servicios"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireDueno={true}>
             <AdminServicios />
           </ProtectedRoute>
         }
@@ -98,13 +86,31 @@ function AppRoutes() {
       <Route
         path="/admin/horarios"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireDueno={true}>
             <AdminHorarios2 />
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/reportes"
+        element={
+          <ProtectedRoute requireDueno={true}>
+            <AdminReportes />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* 5. REDIRECCIÓN GLOBAL: Si la ruta no existe, vuelve al inicio */}
+      {/* RUTAS PROFESIONAL (Empleados) */}
+      <Route
+        path="/profesional/dashboard"
+        element={
+          <ProtectedRoute>
+            <ProfesionalDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* REDIRECCIÓN */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
