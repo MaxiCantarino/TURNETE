@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -6,6 +6,7 @@ const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+  const [expandedMenus, setExpandedMenus] = useState({});
 
   const handleLogout = () => {
     if (confirm("¿Cerrar sesión?")) {
@@ -14,17 +15,19 @@ const Sidebar = () => {
     }
   };
 
+  const toggleMenu = (menuName) => {
+    setExpandedMenus((prev) => ({
+      ...prev,
+      [menuName]: !prev[menuName],
+    }));
+  };
+
   const menuItems = [
     {
       name: "Dashboard",
       path: "/admin",
       icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -38,12 +41,7 @@ const Sidebar = () => {
       name: "Agenda",
       path: "/admin/agenda",
       icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -54,34 +52,10 @@ const Sidebar = () => {
       ),
     },
     {
-      name: "Agenda Vista Diaria",
-      path: "/admin/agenda-semanal",
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-          />
-        </svg>
-      ),
-    },
-    {
       name: "Clientes",
       path: "/admin/clientes",
       icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -93,14 +67,8 @@ const Sidebar = () => {
     },
     {
       name: "Profesionales",
-      path: "/admin/profesionales",
       icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -109,41 +77,31 @@ const Sidebar = () => {
           />
         </svg>
       ),
+      submenu: [
+        {
+          name: "Gestión de Profesionales",
+          path: "/admin/profesionales",
+        },
+        {
+          name: "Horarios",
+          path: "/admin/horarios",
+        },
+        {
+          name: "Servicios",
+          path: "/admin/servicios",
+        },
+      ],
     },
     {
-      name: "Horarios",
-      path: "/admin/horarios",
+      name: "Reportes",
+      path: "/admin/reportes",
       icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      ),
-    },
-    {
-      name: "Servicios",
-      path: "/admin/servicios",
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
           />
         </svg>
       ),
@@ -152,24 +110,14 @@ const Sidebar = () => {
       name: "Configuración",
       path: "/admin/configuracion",
       icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
             d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
           />
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
     },
@@ -180,12 +128,7 @@ const Sidebar = () => {
       <div className="p-6 border-b border-dark-200">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-brand-500 to-brand-600 rounded-xl flex items-center justify-center shadow-lg">
-            <svg
-              className="w-6 h-6 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -204,19 +147,70 @@ const Sidebar = () => {
       <nav className="flex-1 overflow-y-auto py-6">
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path;
+          const isExpanded = expandedMenus[item.name];
+          const hasSubmenu = item.submenu && item.submenu.length > 0;
+          const hasActiveSubmenu = hasSubmenu && item.submenu.some((sub) => location.pathname === sub.path);
+
           return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 px-6 py-3 transition-all ${
-                isActive
-                  ? "bg-gradient-to-r from-brand-50 to-accent-50 border-r-4 border-brand-500 text-brand-700 font-semibold"
-                  : "text-dark-600 hover:bg-dark-50 hover:text-dark-900"
-              }`}
-            >
-              {item.icon}
-              <span>{item.name}</span>
-            </Link>
+            <div key={item.name}>
+              {hasSubmenu ? (
+                <>
+                  <button
+                    onClick={() => toggleMenu(item.name)}
+                    className={`w-full flex items-center justify-between gap-3 px-6 py-3 transition-all ${
+                      hasActiveSubmenu
+                        ? "bg-gradient-to-r from-brand-50 to-accent-50 text-brand-700 font-semibold"
+                        : "text-dark-600 hover:bg-dark-50 hover:text-dark-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {item.icon}
+                      <span>{item.name}</span>
+                    </div>
+                    <svg
+                      className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {isExpanded && (
+                    <div className="bg-dark-50">
+                      {item.submenu.map((subItem) => {
+                        const isSubActive = location.pathname === subItem.path;
+                        return (
+                          <Link
+                            key={subItem.path}
+                            to={subItem.path}
+                            className={`flex items-center gap-3 px-6 py-2 pl-14 transition-all text-sm ${
+                              isSubActive
+                                ? "bg-brand-100 border-r-4 border-brand-500 text-brand-700 font-semibold"
+                                : "text-dark-600 hover:bg-dark-100 hover:text-dark-900"
+                            }`}
+                          >
+                            {subItem.name}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Link
+                  to={item.path}
+                  className={`flex items-center gap-3 px-6 py-3 transition-all ${
+                    isActive
+                      ? "bg-gradient-to-r from-brand-50 to-accent-50 border-r-4 border-brand-500 text-brand-700 font-semibold"
+                      : "text-dark-600 hover:bg-dark-50 hover:text-dark-900"
+                  }`}
+                >
+                  {item.icon}
+                  <span>{item.name}</span>
+                </Link>
+              )}
+            </div>
           );
         })}
       </nav>
@@ -234,12 +228,7 @@ const Sidebar = () => {
           onClick={handleLogout}
           className="w-full px-6 py-3 flex items-center gap-3 text-red-600 hover:bg-red-50 transition-colors"
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"

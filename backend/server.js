@@ -756,7 +756,120 @@ app.delete("/api/admin/servicios/:id", requireBusiness, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// ========== REPORTES ==========
 
+app.get("/api/admin/reportes/asistencia", requireBusiness, async (req, res) => {
+  const { fecha_desde, fecha_hasta } = req.query;
+
+  try {
+    const result = await pool.query(
+      `SELECT 
+        COUNT(*) FILTER (WHERE estado = 'completado') as completados,
+        COUNT(*) FILTER (WHERE estado = 'cancelado') as cancelados,
+        COUNT(*) FILTER (WHERE estado = 'pendiente') as pendientes,
+        COUNT(*) as total
+       FROM tenant_paula.turnos 
+       WHERE business_id = $1 
+       AND fecha BETWEEN $2 AND $3`,
+      [req.businessId, fecha_desde, fecha_hasta],
+    );
+
+    const stats = result.rows[0];
+    res.json({
+      completados: parseInt(stats.completados),
+      cancelados: parseInt(stats.cancelados),
+      pendientes: parseInt(stats.pendientes),
+      total: parseInt(stats.total),
+      porcentaje_asistencia:
+        stats.total > 0 ? Math.round((parseInt(stats.completados) / parseInt(stats.total)) * 100) : 0,
+    });
+  } catch (error) {
+    console.error("Error obteniendo reporte de asistencia:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/admin/reportes/servicios", requireBusiness, async (req, res) => {
+  const { fecha_desde, fecha_hasta } = req.query;
+
+  try {
+    const result = await pool.query(
+      `SELECT 
+        s.nombre,
+        s.categoria,
+        COUNT(t.id) as cantidad,
+        SUM(t.precio_pagado) as ingresos
+       FROM tenant_paula.turnos t
+       JOIN tenant_paula.servicios s ON t.servicio_id = s.id
+       WHERE t.business_id = $1 
+       AND t.fecha BETWEEN $2 AND $3
+       AND t.estado = 'completado'
+       GROUP BY s.id, s.nombre, s.categoria
+       ORDER BY cantidad DESC
+       LIMIT 10`,
+      [req.businessId, fecha_desde, fecha_hasta],
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo reporte de servicios:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/admin/reportes/profesionales", requireBusiness, async (req, res) => {
+  const { fecha_desde, fecha_hasta } = req.query;
+
+  try {
+    const result = await pool.query(
+      `SELECT 
+        p.nombre,
+        p.color,
+        COUNT(t.id) as total_turnos,
+        COUNT(*) FILTER (WHERE t.estado = 'completado') as completados,
+        COUNT(*) FILTER (WHERE t.estado = 'cancelado') as cancelados
+       FROM tenant_paula.profesionales p
+       LEFT JOIN tenant_paula.turnos t ON p.id = t.profesional_id 
+         AND t.business_id = $1 
+         AND t.fecha BETWEEN $2 AND $3
+       WHERE p.business_id = $1 AND p.activo = true
+       GROUP BY p.id, p.nombre, p.color
+       ORDER BY total_turnos DESC`,
+      [req.businessId, fecha_desde, fecha_hasta],
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo reporte de profesionales:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/admin/reportes/ingresos", requireBusiness, async (req, res) => {
+  const { fecha_desde, fecha_hasta } = req.query;
+
+  try {
+    const result = await pool.query(
+      `SELECT 
+        fecha,
+        COUNT(*) as cantidad_turnos,
+        SUM(precio_pagado) as total_pagado,
+        SUM(saldo_pendiente) as total_pendiente
+       FROM tenant_paula.turnos 
+       WHERE business_id = $1 
+       AND fecha BETWEEN $2 AND $3
+       AND estado = 'completado'
+       GROUP BY fecha
+       ORDER BY fecha ASC`,
+      [req.businessId, fecha_desde, fecha_hasta],
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error obteniendo reporte de ingresos:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 // ========== RUTAS DE PROFESIONAL-SERVICIOS ==========
 
 app.get("/api/profesionales/:id/servicios", requireBusiness, async (req, res) => {
