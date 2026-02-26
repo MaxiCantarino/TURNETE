@@ -22,10 +22,15 @@ const Sidebar = () => {
     }));
   };
 
-  const menuItems = [
+  const esDueno = user?.es_dueno;
+  const esSuperAdmin = user?.tipo === "superadmin";
+  const rolActual = esSuperAdmin ? "superadmin" : esDueno ? "dueno" : "profesional";
+
+  const todosLosMenus = [
     {
       name: "Dashboard",
       path: "/admin",
+      roles: ["dueno", "superadmin"],
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -40,6 +45,7 @@ const Sidebar = () => {
     {
       name: "Agenda",
       path: "/admin/agenda",
+      roles: ["dueno", "profesional", "superadmin"],
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -54,6 +60,7 @@ const Sidebar = () => {
     {
       name: "Clientes",
       path: "/admin/clientes",
+      roles: ["dueno", "superadmin"],
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -67,6 +74,7 @@ const Sidebar = () => {
     },
     {
       name: "Profesionales",
+      roles: ["dueno", "superadmin"],
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -78,23 +86,15 @@ const Sidebar = () => {
         </svg>
       ),
       submenu: [
-        {
-          name: "Gestión de Profesionales",
-          path: "/admin/profesionales",
-        },
-        {
-          name: "Horarios",
-          path: "/admin/horarios",
-        },
-        {
-          name: "Servicios",
-          path: "/admin/servicios",
-        },
+        { name: "Gestión de Profesionales", path: "/admin/profesionales" },
+        { name: "Horarios", path: "/admin/horarios" },
+        { name: "Servicios", path: "/admin/servicios" },
       ],
     },
     {
       name: "Reportes",
       path: "/admin/reportes",
+      roles: ["dueno", "superadmin"],
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -109,6 +109,7 @@ const Sidebar = () => {
     {
       name: "Configuración",
       path: "/admin/configuracion",
+      roles: ["dueno", "superadmin"],
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -122,6 +123,8 @@ const Sidebar = () => {
       ),
     },
   ];
+
+  const menuItems = todosLosMenus.filter((item) => item.roles.includes(rolActual));
 
   return (
     <div className="w-64 bg-white border-r border-dark-200 flex flex-col h-screen sticky top-0">
@@ -139,7 +142,9 @@ const Sidebar = () => {
           </div>
           <div>
             <h1 className="font-bold text-lg text-dark-900">Turnete</h1>
-            <p className="text-xs text-dark-500">Admin Panel</p>
+            <p className="text-xs text-dark-500">
+              {esSuperAdmin ? "Super Admin" : esDueno ? "Admin Panel" : "Panel Profesional"}
+            </p>
           </div>
         </div>
       </div>
@@ -223,7 +228,6 @@ const Sidebar = () => {
             <p className="text-xs text-dark-600">{user.email}</p>
           </div>
         )}
-
         <button
           onClick={handleLogout}
           className="w-full px-6 py-3 flex items-center gap-3 text-red-600 hover:bg-red-50 transition-colors"

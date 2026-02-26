@@ -579,7 +579,7 @@ app.get("/api/admin/turnos", requireBusiness, async (req, res) => {
   const { fecha, estado, profesional_id } = req.query;
 
   let sql = `
-    SELECT t.*, 
+  SELECT t.*, 
            s.nombre as servicio_nombre, s.precio, s.categoria, s.duracion,
            p.nombre as profesional_nombre, p.color as profesional_color,
            c.nombre as cliente_nombre_completo, c.apellido, c.whatsapp, c.telefono
@@ -664,6 +664,7 @@ app.get("/api/admin/actividad-reciente", requireBusiness, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT t.*, 
+              TO_CHAR(t.fecha AT TIME ZONE 'America/Argentina/Buenos_Aires', 'DD/MM/YYYY') as fecha_formateada,
               s.nombre as servicio_nombre,
               p.nombre as profesional_nombre,
               c.nombre as cliente_nombre, c.apellido
@@ -1114,14 +1115,25 @@ app.get("/api/auth/google/callback", async (req, res) => {
   }
 });
 app.put("/api/admin/configuracion", requireBusiness, async (req, res) => {
-  const { nombre_negocio, slogan, telefono, instagram, direccion, color_primario, banner_position } = req.body;
+  const { nombre_negocio, slogan, telefono, instagram, direccion, color_primario, banner_position, whatsapp_template } =
+    req.body;
 
   try {
     await pool.query(
       `UPDATE tenant_paula.configuracion_negocio 
-       SET nombre_negocio = $1, slogan = $2, telefono = $3, instagram = $4, direccion = $5, color_primario = $6, banner_position = $7
-       WHERE business_id = $8`,
-      [nombre_negocio, slogan, telefono, instagram, direccion, color_primario, banner_position, req.businessId],
+       SET nombre_negocio = $1, slogan = $2, telefono = $3, instagram = $4, direccion = $5, color_primario = $6, banner_position = $7, whatsapp_template = $8
+       WHERE business_id = $9`,
+      [
+        nombre_negocio,
+        slogan,
+        telefono,
+        instagram,
+        direccion,
+        color_primario,
+        banner_position,
+        whatsapp_template,
+        req.businessId,
+      ],
     );
     res.json({ message: "Configuración actualizada" });
   } catch (error) {
