@@ -479,14 +479,44 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
   }
 
   try {
-    // Buscar en qué tenant está el usuario
+    // 1. Primero verificar si es superadmin
+    const superAdminResult = await pool.query("SELECT * FROM public.super_admins WHERE email = $1 AND activo = true", [
+      email,
+    ]);
+
+    if (superAdminResult.rows.length > 0) {
+      const superAdmin = superAdminResult.rows[0];
+      const passwordValido = await verifyPassword(password, superAdmin.password_hash);
+
+      if (!passwordValido) {
+        return res.status(401).json({ error: "Credenciales inválidas" });
+      }
+
+      const token = generateToken({
+        superAdminId: superAdmin.id,
+        email: superAdmin.email,
+        tipo: "superadmin",
+      });
+
+      return res.json({
+        token,
+        user: {
+          id: superAdmin.id,
+          nombre: superAdmin.nombre,
+          email: superAdmin.email,
+          tipo: "superadmin",
+          es_dueno: false,
+        },
+      });
+    }
+
+    // 2. Si no es superadmin, buscar en tenants
     const tenantsResult = await pool.query("SELECT id, schema_name FROM public.tenants");
 
     let user = null;
     let businessId = null;
     let userSchema = null;
 
-    // Buscar el usuario en cada tenant
     for (const tenant of tenantsResult.rows) {
       const authResult = await pool.query(
         `SELECT pa.*, p.nombre, p.apellido, p.es_dueno, p.color, p.activo as profesional_activo
@@ -495,7 +525,6 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
          WHERE pa.email = $1`,
         [email],
       );
-
       if (authResult.rows.length > 0) {
         user = authResult.rows[0];
         businessId = tenant.id;
@@ -504,47 +533,25 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
       }
     }
 
-    if (!user) {
-      return res.status(401).json({ error: "Credenciales inválidas" });
-    }
+    if (!user) return res.status(401).json({ error: "Credenciales inválidas" });
+    if (user.bloqueado_hasta && new Date(user.bloqueado_hasta) > new Date())
+      return res.status(403).json({ error: "Cuenta bloqueada temporalmente" });
+    if (!user.activo || !user.profesional_activo) return res.status(403).json({ error: "Usuario inactivo" });
 
-    // Verificar si está bloqueado
-    if (user.bloqueado_hasta && new Date(user.bloqueado_hasta) > new Date()) {
-      return res.status(403).json({
-        error: "Cuenta bloqueada temporalmente",
-      });
-    }
-
-    // Verificar si está activo
-    if (!user.activo || !user.profesional_activo) {
-      return res.status(403).json({ error: "Usuario inactivo" });
-    }
-
-    // Verificar password
     const passwordValido = await verifyPassword(password, user.password_hash);
 
     if (!passwordValido) {
       const intentos = user.intentos_fallidos + 1;
       const bloqueado = intentos >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
-
       await pool.query(
-        `UPDATE ${userSchema}.profesional_auth 
-         SET intentos_fallidos = $1, bloqueado_hasta = $2 
-         WHERE profesional_id = $3`,
+        `UPDATE ${userSchema}.profesional_auth SET intentos_fallidos = $1, bloqueado_hasta = $2 WHERE profesional_id = $3`,
         [intentos, bloqueado, user.profesional_id],
       );
-
-      return res.status(401).json({
-        error: "Credenciales inválidas",
-        intentosRestantes: 5 - intentos,
-      });
+      return res.status(401).json({ error: "Credenciales inválidas", intentosRestantes: 5 - intentos });
     }
 
-    // Login exitoso
     await pool.query(
-      `UPDATE ${userSchema}.profesional_auth 
-       SET intentos_fallidos = 0, bloqueado_hasta = NULL, ultimo_login = NOW() 
-       WHERE profesional_id = $1`,
+      `UPDATE ${userSchema}.profesional_auth SET intentos_fallidos = 0, bloqueado_hasta = NULL, ultimo_login = NOW() WHERE profesional_id = $1`,
       [user.profesional_id],
     );
 
@@ -573,51 +580,62 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
   }
 });
 
-// ========== RUTAS ADMIN ==========
+// ========== RUTAS SUPERADMIN ==========
 
-app.get("/api/admin/turnos", requireBusiness, async (req, res) => {
-  const { fecha, estado, profesional_id } = req.query;
-
-  let sql = `
-  SELECT t.*, 
-           s.nombre as servicio_nombre, s.precio, s.categoria, s.duracion,
-           p.nombre as profesional_nombre, p.color as profesional_color,
-           c.nombre as cliente_nombre_completo, c.apellido, c.whatsapp, c.telefono
-    FROM tenant_paula.turnos t
-    LEFT JOIN tenant_paula.servicios s ON t.servicio_id = s.id
-    LEFT JOIN tenant_paula.profesionales p ON t.profesional_id = p.id
-    LEFT JOIN tenant_paula.clientes c ON t.cliente_id = c.id
-    WHERE t.business_id = $1
-  `;
-
-  const params = [req.businessId];
-  let paramIndex = 2;
-
-  if (fecha) {
-    sql += ` AND t.fecha = $${paramIndex}`;
-    params.push(fecha);
-    paramIndex++;
-  }
-
-  if (estado) {
-    sql += ` AND t.estado = $${paramIndex}`;
-    params.push(estado);
-    paramIndex++;
-  }
-
-  if (profesional_id) {
-    sql += ` AND t.profesional_id = $${paramIndex}`;
-    params.push(profesional_id);
-    paramIndex++;
-  }
-
-  sql += " ORDER BY t.fecha DESC, t.hora_inicio DESC";
-
+app.get("/api/superadmin/tenants", async (req, res) => {
   try {
-    const result = await pool.query(sql, params);
+    const result = await pool.query("SELECT * FROM public.tenants ORDER BY fecha_creacion DESC");
     res.json(result.rows);
   } catch (error) {
-    console.error("Error obteniendo turnos admin:", error);
+    console.error("Error obteniendo tenants:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/superadmin/estadisticas", async (req, res) => {
+  try {
+    const tenants = await pool.query("SELECT id, schema_name, nombre FROM public.tenants WHERE activo = true");
+
+    let totalTurnos = 0;
+    let totalClientes = 0;
+    let totalProfesionales = 0;
+
+    for (const tenant of tenants.rows) {
+      try {
+        const turnos = await pool.query(`SELECT COUNT(*) as total FROM ${tenant.schema_name}.turnos`);
+        const clientes = await pool.query(`SELECT COUNT(*) as total FROM ${tenant.schema_name}.clientes`);
+        const profesionales = await pool.query(
+          `SELECT COUNT(*) as total FROM ${tenant.schema_name}.profesionales WHERE activo = true`,
+        );
+
+        totalTurnos += parseInt(turnos.rows[0].total);
+        totalClientes += parseInt(clientes.rows[0].total);
+        totalProfesionales += parseInt(profesionales.rows[0].total);
+      } catch (e) {
+        console.error(`Error con tenant ${tenant.schema_name}:`, e.message);
+      }
+    }
+
+    res.json({
+      totalNegocios: tenants.rows.length,
+      totalTurnos,
+      totalClientes,
+      totalProfesionales,
+    });
+  } catch (error) {
+    console.error("Error obteniendo estadísticas globales:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/api/superadmin/tenants/:id", async (req, res) => {
+  const { id } = req.params;
+  const { activo, plan } = req.body;
+  try {
+    await pool.query("UPDATE public.tenants SET activo = $1, plan = $2 WHERE id = $3", [activo, plan, id]);
+    res.json({ message: "Tenant actualizado" });
+  } catch (error) {
+    console.error("Error actualizando tenant:", error);
     res.status(500).json({ error: error.message });
   }
 });

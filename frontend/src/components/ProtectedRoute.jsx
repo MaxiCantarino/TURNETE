@@ -2,7 +2,7 @@ import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
-const ProtectedRoute = ({ children, requireDueno = false }) => {
+const ProtectedRoute = ({ children, requireDueno = false, requireSuperAdmin = false }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -13,11 +13,19 @@ const ProtectedRoute = ({ children, requireDueno = false }) => {
     );
   }
 
-  if (!user) {
+  if (!user) return <Navigate to="/admin/login" replace />;
+
+  // Si requiere superadmin y no lo es
+  if (requireSuperAdmin && user.tipo !== "superadmin") {
     return <Navigate to="/admin/login" replace />;
   }
 
-  // Si la ruta requiere ser dueño y el usuario no lo es
+  // Si es superadmin intentando acceder a rutas de admin normal
+  if (!requireSuperAdmin && user.tipo === "superadmin") {
+    return <Navigate to="/superadmin" replace />;
+  }
+
+  // Si la ruta requiere ser dueño y no lo es
   if (requireDueno && !user.es_dueno) {
     return <Navigate to="/profesional/dashboard" replace />;
   }

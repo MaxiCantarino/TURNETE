@@ -5,9 +5,7 @@ const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth debe usarse dentro de AuthProvider");
-  }
+  if (!context) throw new Error("useAuth debe usarse dentro de AuthProvider");
   return context;
 };
 
@@ -25,14 +23,12 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
       return;
     }
-
     try {
       const response = await axios.get("http://localhost:5000/api/auth/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUser(response.data.user);
     } catch (error) {
-      console.error("Error verificando autenticación:", error);
       localStorage.removeItem("token");
     } finally {
       setLoading(false);
@@ -40,11 +36,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
-    const response = await axios.post("http://localhost:5000/api/auth/login", {
-      email,
-      password,
-    });
-
+    const response = await axios.post("http://localhost:5000/api/auth/login", { email, password });
     localStorage.setItem("token", response.data.token);
     setUser(response.data.user);
     return response.data.user;
@@ -56,13 +48,10 @@ export const AuthProvider = ({ children }) => {
     window.location.href = "/admin/login";
   };
 
-  const value = {
-    user,
-    login,
-    logout,
-    isAuthenticated: !!user,
-    loading,
-  };
+  const isSuperAdmin = user?.tipo === "superadmin";
+  const isDueno = user?.es_dueno === true;
+  const isProfesional = !isSuperAdmin && !isDueno;
 
+  const value = { user, login, logout, isAuthenticated: !!user, loading, isSuperAdmin, isDueno, isProfesional };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

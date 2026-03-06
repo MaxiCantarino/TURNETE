@@ -19,7 +19,9 @@ const AdminLogin = () => {
       const user = await login(email, password);
 
       // Redirigir según el rol
-      if (user.es_dueno) {
+      if (user.tipo === "superadmin") {
+        navigate("/superadmin");
+      } else if (user.es_dueno) {
         navigate("/admin");
       } else {
         navigate("/profesional/dashboard");

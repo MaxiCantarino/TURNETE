@@ -1,14 +1,12 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ClienteProvider } from "./contexts/ClienteContext";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-
 // Páginas públicas
 import LandingPage from "./pages/LandingPage";
 import ClienteReserva from "./pages/ClienteReserva";
 import HistorialCliente from "./pages/HistorialCliente";
-
 // Páginas admin
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -19,9 +17,8 @@ import AdminServicios from "./pages/AdminServicios";
 import AdminProfesionales from "./pages/AdminProfesionales";
 import AdminHorarios2 from "./pages/AdminHorarios2";
 import AdminReportes from "./pages/AdminReportes";
-
-// Páginas profesional
 import ProfesionalDashboard from "./pages/ProfesionalDashboard";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 
 function AppRoutes() {
   return (
@@ -33,6 +30,16 @@ function AppRoutes() {
 
       {/* LOGIN */}
       <Route path="/admin/login" element={<AdminLogin />} />
+
+      {/* SUPERADMIN */}
+      <Route
+        path="/superadmin"
+        element={
+          <ProtectedRoute requireSuperAdmin={true}>
+            <SuperAdminDashboard />
+          </ProtectedRoute>
+        }
+      />
 
       {/* RUTAS ADMIN (Solo dueños) */}
       <Route
@@ -100,7 +107,7 @@ function AppRoutes() {
         }
       />
 
-      {/* RUTAS PROFESIONAL (Empleados) */}
+      {/* RUTAS PROFESIONAL */}
       <Route
         path="/profesional/dashboard"
         element={
@@ -110,7 +117,6 @@ function AppRoutes() {
         }
       />
 
-      {/* REDIRECCIÓN */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
