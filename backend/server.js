@@ -1500,6 +1500,202 @@ app.delete("/api/superadmin/tenants/:id", async (req, res) => {
     client.release();
   }
 });
+// ========== CONFIGURACIÓN PÚBLICA POR SLUG ==========
+app.get("/api/public/:slug/configuracion", async (req, res) => {
+  const { slug } = req.params;
+  try {
+    const tenantResult = await pool.query(
+      "SELECT id, schema_name, nombre, plan, activo FROM public.tenants WHERE slug = $1",
+      [slug],
+    );
+    if (tenantResult.rows.length === 0) return res.status(404).json({ error: "Negocio no encontrado" });
+
+    const tenant = tenantResult.rows[0];
+    if (!tenant.activo) return res.status(403).json({ error: "Negocio inactivo" });
+
+    const config = await pool.query(
+      `SELECT nombre_negocio, slogan, color_primario, logo_url, banner_url, banner_position
+       FROM ${tenant.schema_name}.configuracion_negocio WHERE business_id = $1`,
+      [tenant.id],
+    );
+
+    res.json({
+      slug,
+      businessId: tenant.id,
+      schemaName: tenant.schema_name,
+      ...config.rows[0],
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== RUTAS PÚBLICAS POR SLUG ==========
+app.get("/api/public/:slug/servicios", async (req, res) => {
+  const { slug } = req.params;
+  try {
+    const tenantResult = await pool.query(
+      "SELECT id, schema_name FROM public.tenants WHERE slug = $1 AND activo = true",
+      [slug],
+    );
+    if (tenantResult.rows.length === 0) return res.status(404).json({ error: "Negocio no encontrado" });
+    const { id, schema_name } = tenantResult.rows[0];
+    const result = await pool.query(`SELECT * FROM ${schema_name}.servicios WHERE business_id = $1`, [id]);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/public/:slug/profesionales", async (req, res) => {
+  const { slug } = req.params;
+  try {
+    const tenantResult = await pool.query(
+      "SELECT id, schema_name FROM public.tenants WHERE slug = $1 AND activo = true",
+      [slug],
+    );
+    if (tenantResult.rows.length === 0) return res.status(404).json({ error: "Negocio no encontrado" });
+    const { id, schema_name } = tenantResult.rows[0];
+    const result = await pool.query(
+      `SELECT * FROM ${schema_name}.profesionales WHERE business_id = $1 AND activo = true`,
+      [id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/public/:slug/servicios/:servicioId/profesionales", async (req, res) => {
+  const { slug, servicioId } = req.params;
+  try {
+    const tenantResult = await pool.query(
+      "SELECT id, schema_name FROM public.tenants WHERE slug = $1 AND activo = true",
+      [slug],
+    );
+    if (tenantResult.rows.length === 0) return res.status(404).json({ error: "Negocio no encontrado" });
+    const { id, schema_name } = tenantResult.rows[0];
+    const result = await pool.query(
+      `SELECT p.* FROM ${schema_name}.profesionales p
+       INNER JOIN ${schema_name}.profesional_servicios ps ON p.id = ps.profesional_id
+       WHERE ps.business_id = $1 AND ps.servicio_id = $2 AND p.activo = true`,
+      [id, servicioId],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/public/:slug/profesionales/:profId/horarios", async (req, res) => {
+  const { slug, profId } = req.params;
+  try {
+    const tenantResult = await pool.query(
+      "SELECT id, schema_name FROM public.tenants WHERE slug = $1 AND activo = true",
+      [slug],
+    );
+    if (tenantResult.rows.length === 0) return res.status(404).json({ error: "Negocio no encontrado" });
+    const { id, schema_name } = tenantResult.rows[0];
+    const result = await pool.query(
+      `SELECT * FROM ${schema_name}.profesional_horarios 
+       WHERE business_id = $1 AND profesional_id = $2 AND activo = true`,
+      [id, profId],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/public/:slug/turnos", async (req, res) => {
+  const { slug } = req.params;
+  const { fecha_desde, fecha_hasta, profesional_id } = req.query;
+  try {
+    const tenantResult = await pool.query(
+      "SELECT id, schema_name FROM public.tenants WHERE slug = $1 AND activo = true",
+      [slug],
+    );
+    if (tenantResult.rows.length === 0) return res.status(404).json({ error: "Negocio no encontrado" });
+    const { id, schema_name } = tenantResult.rows[0];
+    const result = await pool.query(
+      `SELECT * FROM ${schema_name}.turnos 
+       WHERE business_id = $1 AND fecha BETWEEN $2 AND $3 AND profesional_id = $4`,
+      [id, fecha_desde, fecha_hasta, profesional_id],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/public/:slug/turnos", async (req, res) => {
+  const { slug } = req.params;
+  const {
+    servicio_id,
+    profesional_id,
+    cliente_nombre,
+    cliente_whatsapp,
+    fecha,
+    hora_inicio,
+    hora_fin,
+    precio_pagado,
+    saldo_pendiente,
+    notas,
+  } = req.body;
+  try {
+    const tenantResult = await pool.query(
+      "SELECT id, schema_name FROM public.tenants WHERE slug = $1 AND activo = true",
+      [slug],
+    );
+    if (tenantResult.rows.length === 0) return res.status(404).json({ error: "Negocio no encontrado" });
+    const { id, schema_name } = tenantResult.rows[0];
+
+    // Buscar o crear cliente
+    let clienteId = null;
+    if (cliente_whatsapp) {
+      const clienteExistente = await pool.query(
+        `SELECT id FROM ${schema_name}.clientes WHERE business_id = $1 AND whatsapp = $2`,
+        [id, cliente_whatsapp],
+      );
+      if (clienteExistente.rows.length > 0) {
+        clienteId = clienteExistente.rows[0].id;
+      } else {
+        const nombreParts = (cliente_nombre || "").split(" ");
+        const nuevoCliente = await pool.query(
+          `INSERT INTO ${schema_name}.clientes (business_id, nombre, apellido, whatsapp)
+           VALUES ($1, $2, $3, $4) RETURNING id`,
+          [id, nombreParts[0] || cliente_nombre, nombreParts[1] || "", cliente_whatsapp],
+        );
+        clienteId = nuevoCliente.rows[0].id;
+      }
+    }
+
+    const result = await pool.query(
+      `INSERT INTO ${schema_name}.turnos 
+       (business_id, servicio_id, profesional_id, cliente_id, cliente_nombre, cliente_whatsapp,
+        fecha, hora_inicio, hora_fin, precio_pagado, saldo_pendiente, notas)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+      [
+        id,
+        servicio_id,
+        profesional_id,
+        clienteId,
+        cliente_nombre,
+        cliente_whatsapp,
+        fecha,
+        hora_inicio,
+        hora_fin,
+        precio_pagado || 0,
+        saldo_pendiente || 0,
+        notas || null,
+      ],
+    );
+    res.json({ id: result.rows[0].id });
+  } catch (error) {
+    if (error.code === "23505") return res.status(409).json({ error: "Este horario ya está reservado" });
+    res.status(500).json({ error: error.message });
+  }
+});
 // ========== INICIO DEL SERVIDOR ==========
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);

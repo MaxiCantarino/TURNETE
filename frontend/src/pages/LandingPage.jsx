@@ -13,9 +13,7 @@ const LandingPage = () => {
 
   const loadConfiguracion = async () => {
     try {
-      const response = await axios.get(
-        "http://localhost:5000/api/configuracion/negocio",
-      );
+      const response = await axios.get("http://localhost:5000/api/configuracion/negocio");
       setConfig(response.data);
     } catch (error) {
       console.error("Error cargando configuración:", error);
@@ -97,7 +95,7 @@ const LandingPage = () => {
           </p>
 
           <button
-            onClick={() => navigate("/reservar")}
+            onClick={() => navigate("/reservar?negocio=paulacantarino")}
             className="relative px-14 py-5 rounded-full font-black text-white shadow-2xl transition-all text-xl active:scale-95 animate-pulse-slow hover:scale-110"
             style={{
               backgroundColor: config.color_primario,
@@ -160,9 +158,7 @@ const LandingPage = () => {
       <footer className="bg-[#0a0a0a] text-white py-4 border-t border-white/5 mt-auto">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
-            <p className="text-sm font-black tracking-widest uppercase opacity-70">
-              TURNETE
-            </p>
+            <p className="text-sm font-black tracking-widest uppercase opacity-70">TURNETE</p>
             <span className="text-gray-700">|</span>
             <p className="text-[8px] text-gray-500 uppercase tracking-widest font-bold">
               © {new Date().getFullYear()} Todos los derechos reservados
@@ -170,12 +166,8 @@ const LandingPage = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[7px] font-bold text-gray-600 uppercase tracking-[0.4em]">
-              Desarrollado por
-            </span>
-            <span className="text-2xl font-black italic tracking-tighter text-white opacity-90">
-              KAIROS
-            </span>
+            <span className="text-[7px] font-bold text-gray-600 uppercase tracking-[0.4em]">Desarrollado por</span>
+            <span className="text-2xl font-black italic tracking-tighter text-white opacity-90">KAIROS</span>
           </div>
         </div>
       </footer>
@@ -193,14 +185,7 @@ const LandingPage = () => {
   );
 };
 
-const ContactCard = ({
-  label,
-  value,
-  color,
-  icon,
-  link,
-  isLocation = false,
-}) => {
+const ContactCard = ({ label, value, color, icon, link, isLocation = false }) => {
   if (!value) return null;
   const Wrapper = link ? "a" : "div";
   return (
@@ -228,12 +213,8 @@ const ContactCard = ({
           {icon}
         </svg>
       </div>
-      <span className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-400 mb-2">
-        {label}
-      </span>
-      <span className="text-gray-900 font-black text-2xl leading-tight tracking-tight">
-        {value}
-      </span>
+      <span className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-400 mb-2">{label}</span>
+      <span className="text-gray-900 font-black text-2xl leading-tight tracking-tight">{value}</span>
     </Wrapper>
   );
 };
