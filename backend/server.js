@@ -1200,6 +1200,306 @@ app.post("/api/admin/configuracion/logo", requireBusiness, upload.single("logo")
     res.status(500).json({ error: error.message });
   }
 });
+
+// ========== CREAR NUEVO TENANT ==========
+
+app.post("/api/superadmin/tenants", async (req, res) => {
+  const { nombre, slug, email_dueno, password_dueno, nombre_dueno, plan } = req.body;
+
+  if (!nombre || !slug || !email_dueno || !password_dueno || !nombre_dueno) {
+    return res.status(400).json({ error: "Faltan campos requeridos" });
+  }
+
+  const schemaName = `tenant_${slug.replace(/[^a-z0-9]/g, "_")}`;
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 1. Crear tenant en public.tenants
+    const tenantResult = await client.query(
+      `INSERT INTO public.tenants (nombre, schema_name, plan, activo, slug, nombre_negocio, email_contacto)
+       VALUES ($1, $2, $3, true, $4, $1, $5)
+       RETURNING id`,
+      [nombre, schemaName, plan || "basic", slug, email_dueno],
+    );
+    const tenantId = tenantResult.rows[0].id;
+
+    // 2. Crear schema
+    await client.query(`CREATE SCHEMA IF NOT EXISTS ${schemaName}`);
+
+    // 3. Crear todas las tablas
+    await client.query(`
+      CREATE TABLE ${schemaName}.profesionales (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL,
+        nombre VARCHAR(255) NOT NULL,
+        apellido VARCHAR(255),
+        especialidad VARCHAR(255),
+        color VARCHAR(7) DEFAULT '#3498db',
+        activo BOOLEAN DEFAULT true,
+        es_dueno BOOLEAN DEFAULT false,
+        creado_en TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE ${schemaName}.profesional_auth (
+        id SERIAL PRIMARY KEY,
+        profesional_id INTEGER REFERENCES ${schemaName}.profesionales(id),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        activo BOOLEAN DEFAULT true,
+        intentos_fallidos INTEGER DEFAULT 0,
+        bloqueado_hasta TIMESTAMP,
+        ultimo_login TIMESTAMP,
+        creado_en TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE ${schemaName}.servicios (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL,
+        nombre VARCHAR(255) NOT NULL,
+        descripcion TEXT,
+        duracion INTEGER DEFAULT 30,
+        precio DECIMAL(10,2) DEFAULT 0,
+        categoria VARCHAR(255),
+        activo BOOLEAN DEFAULT true,
+        creado_en TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE ${schemaName}.profesional_servicios (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL,
+        profesional_id INTEGER REFERENCES ${schemaName}.profesionales(id),
+        servicio_id INTEGER REFERENCES ${schemaName}.servicios(id),
+        UNIQUE(profesional_id, servicio_id)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE ${schemaName}.profesional_horarios (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL,
+        profesional_id INTEGER REFERENCES ${schemaName}.profesionales(id),
+        dia_semana VARCHAR(20) NOT NULL,
+        hora_inicio TIME,
+        hora_fin TIME,
+        hora_inicio_tarde TIME,
+        hora_fin_tarde TIME,
+        activo BOOLEAN DEFAULT true,
+        UNIQUE(profesional_id, dia_semana)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE ${schemaName}.clientes (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL,
+        nombre VARCHAR(255),
+        apellido VARCHAR(255),
+        whatsapp VARCHAR(50),
+        telefono VARCHAR(50),
+        email VARCHAR(255),
+        edad INTEGER,
+        saldo_deuda DECIMAL(10,2) DEFAULT 0,
+        creado_en TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE ${schemaName}.turnos (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL,
+        servicio_id INTEGER REFERENCES ${schemaName}.servicios(id),
+        profesional_id INTEGER REFERENCES ${schemaName}.profesionales(id),
+        cliente_id INTEGER REFERENCES ${schemaName}.clientes(id),
+        cliente_nombre VARCHAR(255),
+        cliente_whatsapp VARCHAR(50),
+        fecha DATE NOT NULL,
+        hora_inicio TIME NOT NULL,
+        hora_fin TIME NOT NULL,
+        estado VARCHAR(50) DEFAULT 'pendiente',
+        precio_pagado DECIMAL(10,2) DEFAULT 0,
+        saldo_pendiente DECIMAL(10,2) DEFAULT 0,
+        notas TEXT,
+        creado_en TIMESTAMP DEFAULT NOW(),
+        UNIQUE(profesional_id, fecha, hora_inicio)
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE ${schemaName}.bloques_bloqueados (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL,
+        profesional_id INTEGER REFERENCES ${schemaName}.profesionales(id),
+        fecha DATE NOT NULL,
+        hora_inicio TIME NOT NULL,
+        hora_fin TIME NOT NULL,
+        motivo VARCHAR(255),
+        creado_en TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE ${schemaName}.sobreturnos (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL,
+        profesional_id INTEGER REFERENCES ${schemaName}.profesionales(id),
+        fecha DATE NOT NULL,
+        hora_inicio TIME NOT NULL,
+        hora_fin TIME NOT NULL,
+        motivo VARCHAR(255),
+        creado_en TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE ${schemaName}.google_tokens (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL,
+        profesional_id INTEGER UNIQUE,
+        access_token TEXT,
+        refresh_token TEXT,
+        expiry_date BIGINT,
+        creado_en TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE ${schemaName}.configuracion_negocio (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER NOT NULL,
+        nombre_negocio VARCHAR(255),
+        slogan VARCHAR(255),
+        telefono VARCHAR(50),
+        instagram VARCHAR(255),
+        direccion TEXT,
+        color_primario VARCHAR(7) DEFAULT '#e91e63',
+        logo_url VARCHAR(500),
+        banner_url VARCHAR(500),
+        banner_position VARCHAR(50) DEFAULT 'center',
+        whatsapp_template TEXT,
+        creado_en TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // 4. Insertar configuracion inicial
+    await client.query(
+      `INSERT INTO ${schemaName}.configuracion_negocio (business_id, nombre_negocio, color_primario)
+       VALUES ($1, $2, '#e91e63')`,
+      [tenantId, nombre],
+    );
+
+    // 5. Crear profesional dueño
+    const profResult = await client.query(
+      `INSERT INTO ${schemaName}.profesionales (business_id, nombre, es_dueno, activo, color)
+       VALUES ($1, $2, true, true, '#e91e63')
+       RETURNING id`,
+      [tenantId, nombre_dueno],
+    );
+    const profId = profResult.rows[0].id;
+
+    // 6. Crear auth del dueño
+    const { hashPassword } = require("./utils/auth");
+    const hash = await hashPassword(password_dueno);
+    await client.query(
+      `INSERT INTO ${schemaName}.profesional_auth (profesional_id, email, password_hash, activo)
+       VALUES ($1, $2, $3, true)`,
+      [profId, email_dueno, hash],
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      message: "Negocio creado correctamente",
+      tenantId,
+      schemaName,
+      loginEmail: email_dueno,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Error creando tenant:", error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+// ========== PAGOS Y GESTIÓN TENANTS ==========
+
+app.post("/api/superadmin/tenants/:id/pago", async (req, res) => {
+  const { id } = req.params;
+  const { monto } = req.body;
+  try {
+    const vencimiento = new Date();
+    vencimiento.setMonth(vencimiento.getMonth() + 1);
+    await pool.query(
+      `UPDATE public.tenants 
+       SET estado_pago = 'al_dia', 
+           fecha_vencimiento = $1,
+           monto_mensual = $2
+       WHERE id = $3`,
+      [vencimiento.toISOString().split("T")[0], monto, id],
+    );
+    res.json({ message: "Pago registrado" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/superadmin/tenants/:id/reset-password", async (req, res) => {
+  const { id } = req.params;
+  const { nueva_password } = req.body;
+  try {
+    const tenantResult = await pool.query("SELECT schema_name FROM public.tenants WHERE id = $1", [id]);
+    if (tenantResult.rows.length === 0) return res.status(404).json({ error: "Negocio no encontrado" });
+
+    const schemaName = tenantResult.rows[0].schema_name;
+    const { hashPassword } = require("./utils/auth");
+    const hash = await hashPassword(nueva_password);
+
+    // Resetear contraseña del dueño (es_dueno = true)
+    await pool.query(
+      `UPDATE ${schemaName}.profesional_auth pa
+       SET password_hash = $1
+       FROM ${schemaName}.profesionales p
+       WHERE pa.profesional_id = p.id AND p.es_dueno = true`,
+      [hash],
+    );
+    res.json({ message: "Contraseña reseteada" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/api/superadmin/tenants/:id", async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const tenantResult = await client.query("SELECT schema_name, activo FROM public.tenants WHERE id = $1", [id]);
+    if (tenantResult.rows.length === 0) return res.status(404).json({ error: "Negocio no encontrado" });
+
+    const { schema_name, activo } = tenantResult.rows[0];
+    if (activo) return res.status(400).json({ error: "Solo se pueden eliminar negocios inactivos" });
+
+    // Eliminar schema completo
+    await client.query(`DROP SCHEMA IF EXISTS ${schema_name} CASCADE`);
+    await client.query("DELETE FROM public.tenants WHERE id = $1", [id]);
+
+    await client.query("COMMIT");
+    res.json({ message: "Negocio eliminado permanentemente" });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
 // ========== INICIO DEL SERVIDOR ==========
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
