@@ -1514,8 +1514,9 @@ app.get("/api/public/:slug/configuracion", async (req, res) => {
     if (!tenant.activo) return res.status(403).json({ error: "Negocio inactivo" });
 
     const config = await pool.query(
-      `SELECT nombre_negocio, slogan, color_primario, logo_url, banner_url, banner_position
-       FROM ${tenant.schema_name}.configuracion_negocio WHERE business_id = $1`,
+      `SELECT nombre_negocio, slogan, color_primario, logo_url, banner_url, banner_position,
+          telefono, instagram, direccion, whatsapp_template
+   FROM ${tenant.schema_name}.configuracion_negocio WHERE business_id = $1`,
       [tenant.id],
     );
 

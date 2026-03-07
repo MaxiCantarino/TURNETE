@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 // Páginas públicas
 import LandingPage from "./pages/LandingPage";
+import NegocioLanding from "./pages/NegocioLanding";
 import ClienteReserva from "./pages/ClienteReserva";
 import HistorialCliente from "./pages/HistorialCliente";
 // Páginas admin
@@ -25,6 +26,7 @@ function AppRoutes() {
     <Routes>
       {/* RUTAS PÚBLICAS */}
       <Route path="/" element={<LandingPage />} />
+      <Route path="/negocio/:slug" element={<NegocioLanding />} />
       <Route path="/reservar" element={<ClienteReserva />} />
       <Route path="/historial" element={<HistorialCliente />} />
 
