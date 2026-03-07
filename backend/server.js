@@ -1696,6 +1696,73 @@ app.post("/api/public/:slug/turnos", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// ========== CREAR/EDITAR PROFESIONAL ==========
+app.post("/api/admin/profesionales", requireBusiness, async (req, res) => {
+  const { nombre, apellido, color, email, password } = req.body;
+
+  if (!nombre) return res.status(400).json({ error: "El nombre es requerido" });
+
+  try {
+    // Verificar límite del plan
+    const tenantResult = await pool.query("SELECT plan FROM public.tenants WHERE id = $1", [req.businessId]);
+    const plan = tenantResult.rows[0]?.plan || "basic";
+    const limites = { basic: 2, premium: 8, enterprise: 999 };
+    const limite = limites[plan] || 2;
+
+    const countResult = await pool.query(
+      "SELECT COUNT(*) as total FROM tenant_paula.profesionales WHERE business_id = $1 AND activo = true",
+      [req.businessId],
+    );
+    const total = parseInt(countResult.rows[0].total);
+
+    if (total >= limite) {
+      return res.status(403).json({
+        error: `Tu plan ${plan} permite máximo ${limite} profesionales. Actualizá tu plan para agregar más.`,
+        limite,
+        plan,
+      });
+    }
+
+    // Crear profesional
+    const profResult = await pool.query(
+      `INSERT INTO tenant_paula.profesionales (business_id, nombre, apellido, color, activo, es_dueno)
+       VALUES ($1, $2, $3, $4, true, false) RETURNING id`,
+      [req.businessId, nombre, apellido || null, color || "#3498db"],
+    );
+    const profId = profResult.rows[0].id;
+
+    // Si tiene email y password, crear auth
+    if (email && password) {
+      const { hashPassword } = require("./utils/auth");
+      const hash = await hashPassword(password);
+      await pool.query(
+        `INSERT INTO tenant_paula.profesional_auth (profesional_id, email, password_hash, activo)
+         VALUES ($1, $2, $3, true)`,
+        [profId, email, hash],
+      );
+    }
+
+    res.json({ id: profId, message: "Profesional creado" });
+  } catch (error) {
+    if (error.code === "23505") return res.status(400).json({ error: "El email ya está en uso" });
+    console.error("Error creando profesional:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/api/admin/profesionales/:id", requireBusiness, async (req, res) => {
+  const { nombre, apellido, color, activo } = req.body;
+  try {
+    await pool.query(
+      `UPDATE tenant_paula.profesionales SET nombre = $1, apellido = $2, color = $3, activo = $4
+       WHERE business_id = $5 AND id = $6`,
+      [nombre, apellido || null, color, activo, req.businessId, req.params.id],
+    );
+    res.json({ message: "Profesional actualizado" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 // ========== INICIO DEL SERVIDOR ==========
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
