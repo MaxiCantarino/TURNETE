@@ -256,9 +256,12 @@ const SuperAdminDashboard = () => {
                           </select>
                           {tenant.monto_mensual > 0 && (
                             <p className="text-xs text-dark-500 mt-1">
-                              {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(
-                                tenant.monto_mensual,
-                              )}
+                              {new Intl.NumberFormat("es-AR", {
+                                style: "currency",
+                                currency: "ARS",
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }).format(tenant.monto_mensual)}
                               /mes
                             </p>
                           )}
@@ -450,14 +453,25 @@ const SuperAdminDashboard = () => {
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-500 font-semibold">$</span>
                   <input
-                    type="number"
+                    type="text"
                     value={montoPago}
-                    onChange={(e) => setMontoPago(e.target.value)}
-                    placeholder={tenantSeleccionado.monto_mensual || "0"}
+                    onChange={(e) => {
+                      const valor = e.target.value.replace(/\D/g, "");
+                      setMontoPago(valor ? parseInt(valor) : "");
+                    }}
+                    onBlur={(e) => {
+                      if (montoPago) {
+                        const numero = parseInt(montoPago);
+                        setMontoPago(numero.toString());
+                      }
+                    }}
+                    placeholder="Ej: 15000"
                     className="input pl-7"
                   />
                 </div>
-                <p className="text-xs text-dark-400 mt-1">Pesos argentinos (ARS)</p>
+                <p className="text-xs text-dark-400 mt-1">
+                  {montoPago ? `$ ${parseInt(montoPago).toLocaleString("es-AR")}` : "Ingresá el monto en pesos"}
+                </p>
               </div>
               <p className="text-xs text-dark-500">Se registrará el pago y el próximo vencimiento será en 30 días.</p>
             </div>
