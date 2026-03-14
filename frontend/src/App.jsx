@@ -1,14 +1,13 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ClienteProvider } from "./contexts/ClienteContext";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-// Páginas públicas
 import LandingPage from "./pages/LandingPage";
 import NegocioLanding from "./pages/NegocioLanding";
 import ClienteReserva from "./pages/ClienteReserva";
 import HistorialCliente from "./pages/HistorialCliente";
-// Páginas admin
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminConfiguracion from "./pages/AdminConfiguracion";
@@ -24,16 +23,11 @@ import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 function AppRoutes() {
   return (
     <Routes>
-      {/* RUTAS PÚBLICAS */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/negocio/:slug" element={<NegocioLanding />} />
       <Route path="/reservar" element={<ClienteReserva />} />
       <Route path="/historial" element={<HistorialCliente />} />
-
-      {/* LOGIN */}
       <Route path="/admin/login" element={<AdminLogin />} />
-
-      {/* SUPERADMIN */}
       <Route
         path="/superadmin"
         element={
@@ -42,8 +36,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
-      {/* RUTAS ADMIN (Solo dueños) */}
       <Route
         path="/admin"
         element={
@@ -108,8 +100,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
-      {/* RUTAS PROFESIONAL */}
       <Route
         path="/profesional/dashboard"
         element={
@@ -118,22 +108,31 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
 function App() {
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => forceUpdate((n) => n + 1));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <Router>
-      <AuthProvider>
-        <ClienteProvider>
-          <div className="min-h-screen">
-            <AppRoutes />
-          </div>
-        </ClienteProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <ClienteProvider>
+            <div className="min-h-screen">
+              <AppRoutes />
+            </div>
+          </ClienteProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </Router>
   );
 }

@@ -52,15 +52,38 @@ const AdminDashboard = () => {
     }
   };
 
-  const StatCard = ({ icon, label, value, color, link }) => (
-    <Link to={link} className="card p-6 hover:shadow-xl transition-all group">
+  const StatCard = ({ icon, label, value, gradient, link }) => (
+    <Link
+      to={link}
+      className="block rounded-2xl p-6 transition-all duration-200 group"
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border)",
+        boxShadow: "var(--neu-shadow)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "var(--brand)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = "var(--neu-shadow), 0 0 20px var(--brand-glow)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "var(--border)";
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "var(--neu-shadow)";
+      }}
+    >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-dark-600 mb-1">{label}</p>
-          <p className="text-3xl font-bold text-dark-900">{value}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>
+            {label}
+          </p>
+          <p className="text-3xl font-black" style={{ color: "var(--text)", fontFamily: "Outfit, sans-serif" }}>
+            {value}
+          </p>
         </div>
         <div
-          className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center group-hover:scale-110 transition-transform`}
+          className="w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
+          style={{ background: gradient, boxShadow: "0 4px 14px rgba(124,58,237,0.3)" }}
         >
           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
@@ -72,72 +95,85 @@ const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex">
+      <div className="flex min-h-screen" style={{ background: "var(--bg)" }}>
         <Sidebar />
-        <div className="flex-1 p-8">
-          <div className="flex items-center justify-center h-96">
-            <div className="spinner w-12 h-12" />
-          </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="spinner w-12 h-12" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex bg-gray-50 min-h-screen">
+    <div className="flex min-h-screen" style={{ background: "var(--bg)" }}>
       <Sidebar />
       <div className="flex-1 p-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-dark-900 mb-2">Dashboard</h1>
-          <p className="text-dark-600">Resumen general de tu negocio</p>
+          <h1 className="text-4xl font-black mb-1" style={{ color: "var(--text)", fontFamily: "Outfit, sans-serif" }}>
+            Dashboard
+          </h1>
+          <p style={{ color: "var(--text-muted)" }}>Resumen general de tu negocio</p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
           <StatCard
             icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
             label="Turnos Hoy"
             value={stats.turnosHoy}
-            color="bg-gradient-to-br from-blue-500 to-blue-600"
+            gradient="linear-gradient(135deg, #7c3aed, #9066ff)"
             link="/admin/agenda"
           />
           <StatCard
             icon="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
             label="Turnos Pendientes"
             value={stats.turnosPendientes}
-            color="bg-gradient-to-br from-orange-500 to-orange-600"
+            gradient="linear-gradient(135deg, #f59e0b, #fbbf24)"
             link="/admin/agenda"
           />
           <StatCard
-            icon="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+            icon="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
             label="Total Clientes"
             value={stats.totalClientes}
-            color="bg-gradient-to-br from-green-500 to-green-600"
+            gradient="linear-gradient(135deg, #10b981, #34d399)"
             link="/admin/clientes"
           />
           <StatCard
             icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             label="Deuda Total"
             value={`$${stats.deudaTotal.toLocaleString()}`}
-            color="bg-gradient-to-br from-red-500 to-red-600"
+            gradient="linear-gradient(135deg, #ef4444, #f87171)"
             link="/admin/clientes"
           />
         </div>
 
         {/* Dos columnas */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Columna izquierda - Turnos del día */}
-          <div className="card p-6">
+          {/* Turnos del día */}
+          <div
+            className="rounded-2xl p-6"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              boxShadow: "var(--neu-shadow)",
+            }}
+          >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-dark-900">Turnos de Hoy</h2>
-              <Link to="/admin/agenda" className="btn-ghost btn-sm">
+              <h2 className="text-xl font-black" style={{ color: "var(--text)", fontFamily: "Outfit, sans-serif" }}>
+                Turnos de Hoy
+              </h2>
+              <Link
+                to="/admin/agenda"
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+                style={{ color: "var(--brand)", background: "var(--brand-glow)" }}
+              >
                 Ver agenda
               </Link>
             </div>
             {turnosHoy.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-dark-600">No hay turnos para hoy</p>
+                <p style={{ color: "var(--text-muted)" }}>No hay turnos para hoy</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
@@ -155,47 +191,66 @@ const AdminDashboard = () => {
             )}
           </div>
 
-          {/* Columna derecha - Actividad reciente */}
-          <div className="card p-6">
+          {/* Actividad reciente */}
+          <div
+            className="rounded-2xl p-6"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              boxShadow: "var(--neu-shadow)",
+            }}
+          >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-dark-900">Actividad Reciente</h2>
-              <Link to="/admin/agenda" className="btn-ghost btn-sm">
+              <h2 className="text-xl font-black" style={{ color: "var(--text)", fontFamily: "Outfit, sans-serif" }}>
+                Actividad Reciente
+              </h2>
+              <Link
+                to="/admin/agenda"
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+                style={{ color: "var(--brand)", background: "var(--brand-glow)" }}
+              >
                 Ver todo
               </Link>
             </div>
             {actividadReciente.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-dark-600">No hay actividad reciente</p>
+                <p style={{ color: "var(--text-muted)" }}>No hay actividad reciente</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
                 {actividadReciente.map((turno) => (
                   <div
                     key={turno.id}
-                    className="flex items-center justify-between p-4 bg-dark-50 rounded-xl hover:bg-dark-100 transition-colors"
+                    className="flex items-center justify-between p-4 rounded-xl transition-all"
+                    style={{ background: "var(--bg-hover)", border: "1px solid var(--border)" }}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center text-white font-bold">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                        style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-light))" }}
+                      >
                         {turno.cliente_nombre?.charAt(0) || "?"}
                       </div>
                       <div>
-                        <p className="font-semibold text-dark-900">
+                        <p className="font-semibold text-sm" style={{ color: "var(--text)" }}>
                           {turno.cliente_nombre} {turno.apellido}
                         </p>
-                        <p className="text-sm text-dark-600">
-                          {turno.servicio_nombre} - {turno.profesional_nombre}
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {turno.servicio_nombre} · {turno.profesional_nombre}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-dark-900">
+                      <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>
                         {turno.fecha
                           ? new Date(turno.fecha).toLocaleDateString("es-AR", {
                               timeZone: "America/Argentina/Buenos_Aires",
                             })
                           : ""}
                       </p>
-                      <p className="text-sm text-dark-600">{turno.hora_inicio}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {turno.hora_inicio}
+                      </p>
                     </div>
                   </div>
                 ))}

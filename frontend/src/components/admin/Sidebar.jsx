@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import ThemeToggle from "../ThemeToggle";
 
 const Sidebar = () => {
   const location = useLocation();
@@ -16,10 +17,7 @@ const Sidebar = () => {
   };
 
   const toggleMenu = (menuName) => {
-    setExpandedMenus((prev) => ({
-      ...prev,
-      [menuName]: !prev[menuName],
-    }));
+    setExpandedMenus((prev) => ({ ...prev, [menuName]: !prev[menuName] }));
   };
 
   const esDueno = user?.es_dueno;
@@ -67,7 +65,7 @@ const Sidebar = () => {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
           />
         </svg>
       ),
@@ -126,12 +124,31 @@ const Sidebar = () => {
 
   const menuItems = todosLosMenus.filter((item) => item.roles.includes(rolActual));
 
+  const SIDEBAR_BG = "#100e22";
+  const SIDEBAR_BORDER = "#332d6e";
+  const SIDEBAR_TEXT = "rgba(255,255,255,0.65)";
+  const SIDEBAR_TEXT_ACTIVE = "white";
+  const SIDEBAR_HOVER = "rgba(255,255,255,0.06)";
+  const BRAND = "#7c3aed";
+  const BRAND_LIGHT = "#9066ff";
+  const BRAND_GLOW = "rgba(124,58,237,0.25)";
+
   return (
-    <div className="w-64 bg-white border-r border-dark-200 flex flex-col h-screen sticky top-0">
-      <div className="p-6 border-b border-dark-200">
+    <div
+      className="w-64 flex flex-col h-screen sticky top-0"
+      style={{ background: SIDEBAR_BG, borderRight: `1px solid ${SIDEBAR_BORDER}` }}
+    >
+      {/* LOGO */}
+      <div className="p-5" style={{ borderBottom: `1px solid ${SIDEBAR_BORDER}` }}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-brand-500 to-brand-600 rounded-xl flex items-center justify-center shadow-lg">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{
+              background: `linear-gradient(135deg, ${BRAND}, ${BRAND_LIGHT})`,
+              boxShadow: `0 4px 14px ${BRAND_GLOW}`,
+            }}
+          >
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -141,15 +158,21 @@ const Sidebar = () => {
             </svg>
           </div>
           <div>
-            <h1 className="font-bold text-lg text-dark-900">Turnete</h1>
-            <p className="text-xs text-dark-500">
+            <h1
+              className="font-black text-lg tracking-tight"
+              style={{ color: "white", fontFamily: "Outfit, sans-serif" }}
+            >
+              Turnete
+            </h1>
+            <p className="text-xs" style={{ color: SIDEBAR_TEXT }}>
               {esSuperAdmin ? "Super Admin" : esDueno ? "Admin Panel" : "Panel Profesional"}
             </p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-6">
+      {/* NAV */}
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path;
           const isExpanded = expandedMenus[item.name];
@@ -162,18 +185,24 @@ const Sidebar = () => {
                 <>
                   <button
                     onClick={() => toggleMenu(item.name)}
-                    className={`w-full flex items-center justify-between gap-3 px-6 py-3 transition-all ${
-                      hasActiveSubmenu
-                        ? "bg-gradient-to-r from-brand-50 to-accent-50 text-brand-700 font-semibold"
-                        : "text-dark-600 hover:bg-dark-50 hover:text-dark-900"
-                    }`}
+                    className="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium"
+                    style={{
+                      background: hasActiveSubmenu ? BRAND_GLOW : "transparent",
+                      color: hasActiveSubmenu ? BRAND_LIGHT : SIDEBAR_TEXT,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!hasActiveSubmenu) e.currentTarget.style.background = SIDEBAR_HOVER;
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!hasActiveSubmenu) e.currentTarget.style.background = "transparent";
+                    }}
                   >
                     <div className="flex items-center gap-3">
                       {item.icon}
                       <span>{item.name}</span>
                     </div>
                     <svg
-                      className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -182,18 +211,18 @@ const Sidebar = () => {
                     </svg>
                   </button>
                   {isExpanded && (
-                    <div className="bg-dark-50">
+                    <div className="mt-1 ml-4 pl-4 space-y-1 border-l-2" style={{ borderColor: SIDEBAR_BORDER }}>
                       {item.submenu.map((subItem) => {
                         const isSubActive = location.pathname === subItem.path;
                         return (
                           <Link
                             key={subItem.path}
                             to={subItem.path}
-                            className={`flex items-center gap-3 px-6 py-2 pl-14 transition-all text-sm ${
-                              isSubActive
-                                ? "bg-brand-100 border-r-4 border-brand-500 text-brand-700 font-semibold"
-                                : "text-dark-600 hover:bg-dark-100 hover:text-dark-900"
-                            }`}
+                            className="flex items-center px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200"
+                            style={{
+                              background: isSubActive ? BRAND_GLOW : "transparent",
+                              color: isSubActive ? BRAND_LIGHT : SIDEBAR_TEXT,
+                            }}
                           >
                             {subItem.name}
                           </Link>
@@ -205,11 +234,12 @@ const Sidebar = () => {
               ) : (
                 <Link
                   to={item.path}
-                  className={`flex items-center gap-3 px-6 py-3 transition-all ${
-                    isActive
-                      ? "bg-gradient-to-r from-brand-50 to-accent-50 border-r-4 border-brand-500 text-brand-700 font-semibold"
-                      : "text-dark-600 hover:bg-dark-50 hover:text-dark-900"
-                  }`}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium"
+                  style={{
+                    background: isActive ? `linear-gradient(135deg, ${BRAND}, ${BRAND_LIGHT})` : "transparent",
+                    color: isActive ? SIDEBAR_TEXT_ACTIVE : SIDEBAR_TEXT,
+                    boxShadow: isActive ? `0 4px 14px ${BRAND_GLOW}` : "none",
+                  }}
                 >
                   {item.icon}
                   <span>{item.name}</span>
@@ -220,19 +250,50 @@ const Sidebar = () => {
         })}
       </nav>
 
-      <div className="mt-auto pt-6 border-t border-dark-200">
+      {/* FOOTER */}
+      <div className="p-4 space-y-3" style={{ borderTop: `1px solid ${SIDEBAR_BORDER}` }}>
+        {/* Theme toggle */}
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-medium" style={{ color: SIDEBAR_TEXT }}>
+            Tema
+          </span>
+          <ThemeToggle />
+        </div>
+
+        {/* Usuario */}
         {user && (
-          <div className="px-6 py-3 mb-2">
-            <p className="text-xs text-dark-500 mb-1">Sesión iniciada como:</p>
-            <p className="text-sm font-semibold text-dark-900">{user.nombre}</p>
-            <p className="text-xs text-dark-600">{user.email}</p>
+          <div
+            className="px-3 py-2.5 rounded-xl"
+            style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${SIDEBAR_BORDER}` }}
+          >
+            <div className="flex items-center gap-2.5">
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                style={{ background: `linear-gradient(135deg, ${BRAND}, ${BRAND_LIGHT})` }}
+              >
+                {user.nombre?.charAt(0)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold truncate" style={{ color: "white" }}>
+                  {user.nombre}
+                </p>
+                <p className="text-xs truncate" style={{ color: SIDEBAR_TEXT }}>
+                  {user.email}
+                </p>
+              </div>
+            </div>
           </div>
         )}
+
+        {/* Logout */}
         <button
           onClick={handleLogout}
-          className="w-full px-6 py-3 flex items-center gap-3 text-red-600 hover:bg-red-50 transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-200"
+          style={{ color: "#f87171" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239,68,68,0.1)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
